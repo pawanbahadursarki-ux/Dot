@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   Building2,
@@ -10,6 +10,7 @@ import {
   signInWithGooglePopup,
   ensureUserDocsInFirestore,
   setPendingAuthAccountMode,
+  fetchAuthorizedFirebaseDomains,
 } from '../services/firebaseService';
 import { formatFirestoreErrorMessage } from '../firebase';
 import { DotLogo } from './DotLogo';
@@ -29,6 +30,25 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    fetchAuthorizedFirebaseDomains()
+      .then((status) => {
+        if (!active) return;
+        if (!status.isCurrentDomainAuthorized && status.currentHost) {
+          setErrorMsg(
+            `This domain (${status.currentHost}) is not yet authorized in Firebase Authentication for project "${status.projectId}". Add "${status.currentHost}" under Firebase Console → Authentication → Settings → Authorized domains.`
+          );
+        }
+      })
+      .catch(() => {
+        // Ignore network check failures silently
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const handleGoogleAuth = async (targetDest: 'customer' | 'company') => {
     if (!agreeTerms) {
@@ -77,7 +97,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </div>
 
         {/* Status Alerts */}
-        {errorMsg && <AuthErrorNotice message={errorMsg} variant="light" />}
+        {errorMsg && (
+          <AuthErrorNotice
+            message={errorMsg}
+            variant="light"
+            onDomainAuthorized={() => setErrorMsg(null)}
+          />
+        )}
 
         {successMsg && (
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">

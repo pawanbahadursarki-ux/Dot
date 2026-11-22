@@ -1,27 +1,56 @@
-import React, { useState } from 'react';
-import { AlertCircle, Check, Copy, ExternalLink } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { AlertCircle, Check, CheckCircle2, Copy, ExternalLink, RefreshCw, Rocket } from 'lucide-react';
+import {
+  AuthorizedDomainsStatus,
+  fetchAuthorizedFirebaseDomains,
+} from '../services/firebaseService';
 
 interface AuthErrorNoticeProps {
   message: string;
   variant?: 'light' | 'dark';
   className?: string;
+  onDomainAuthorized?: () => void;
 }
 
-const FIREBASE_AUTH_SETTINGS_URL =
-  'https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/settings';
+const FALLBACK_AUTHORIZED_APP_URL =
+  'https://ais-pre-4kbd6frpzemfj3ptlz6fsz-33571815962.asia-southeast1.run.app';
 
 export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
   message,
   variant = 'light',
   className = '',
+  onDomainAuthorized,
 }) => {
   const [copied, setCopied] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [domainStatus, setDomainStatus] = useState<AuthorizedDomainsStatus | null>(null);
 
   const isUnauthorizedDomain =
     /unauthorized-domain|not yet authorized in Firebase Authentication|Authorized domains/i.test(message);
 
   const currentHost =
     (typeof window !== 'undefined' && window.location.hostname) || 'pawanbahadursarki-ux.github.io';
+
+  const runLiveCheck = async () => {
+    setChecking(true);
+    try {
+      const status = await fetchAuthorizedFirebaseDomains();
+      setDomainStatus(status);
+      if (status.isCurrentDomainAuthorized) {
+        onDomainAuthorized?.();
+      }
+    } catch {
+      // Keep UI resilient if offline
+    } finally {
+      setChecking(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isUnauthorizedDomain) {
+      void runLiveCheck();
+    }
+  }, [isUnauthorizedDomain]);
 
   const handleCopyDomain = async () => {
     try {
@@ -50,6 +79,27 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
     );
   }
 
+  const projectId = domainStatus?.projectId || 'gen-lang-client-0580095840';
+  const firebaseAuthSettingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
+  const workingAppUrl = domainStatus?.authorizedAppUrl || FALLBACK_AUTHORIZED_APP_URL;
+
+  if (domainStatus?.isCurrentDomainAuthorized) {
+    return (
+      <div
+        className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 text-left ${
+          variant === 'dark'
+            ? 'bg-emerald-950/80 border border-emerald-500/40 text-emerald-200'
+            : 'bg-emerald-50 border border-emerald-200 text-emerald-900'
+        } ${className}`}
+      >
+        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+        <span>
+          <span className="font-mono font-bold">{currentHost}</span> is now authorized! Click <b>Continue with Google</b> again.
+        </span>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`p-3.5 rounded-xl text-xs space-y-2.5 text-left ${
@@ -62,8 +112,14 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
         <AlertCircle
           className={`w-4 h-4 shrink-0 mt-0.5 ${variant === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}
         />
-        <div>
-          <div>Firebase Auth requires this domain to be allowlisted:</div>
+        <div className="min-w-0 flex-1">
+          <div>
+            Domain not yet saved on Firebase project <span className="font-mono font-bold">{projectId}</span>
+            {domainStatus?.projectNumber ? (
+              <span className="opacity-75 font-mono"> (#{domainStatus.projectNumber})</span>
+            ) : null}
+            :
+          </div>
           <div
             className={`mt-1 inline-flex items-center gap-1.5 font-mono text-[11px] font-bold px-2 py-0.5 rounded ${
               variant === 'dark' ? 'bg-white/10 text-amber-200' : 'bg-amber-200/60 text-amber-950'
@@ -75,11 +131,38 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
       </div>
 
       <p className={`text-[11px] leading-relaxed ${variant === 'dark' ? 'text-amber-200/90' : 'text-amber-900/90'}`}>
-        Firebase Console project owners must add <span className="font-mono font-bold">{currentHost}</span> under{' '}
-        <b>Authentication → Settings → Authorized domains</b>.
+        Ensure you selected project <span className="font-mono font-bold">{projectId}</span> in Firebase Console (not another project), then add{' '}
+        <span className="font-mono font-bold">{currentHost}</span> (without <code className="font-mono">https://</code> or path) under{' '}
+        <b>Authentication → Settings → Authorized domains</b>. Or launch immediately on the already-authorized app link below:
       </p>
 
+      {domainStatus && domainStatus.authorizedDomains.length > 0 && (
+        <div
+          className={`p-2 rounded-lg text-[10px] font-mono space-y-1 ${
+            variant === 'dark' ? 'bg-black/30 text-amber-200/90' : 'bg-white/80 text-slate-700 border border-amber-200/80'
+          }`}
+        >
+          <div className="font-sans font-bold uppercase tracking-wider opacity-75">
+            Live Authorized Domains on {projectId}:
+          </div>
+          <div className="break-all leading-relaxed">
+            {domainStatus.authorizedDomains.join(', ')}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
+        <a
+          href={workingAppUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+        >
+          <Rocket className="w-3.5 h-3.5" />
+          <span>Open Working Authorized App</span>
+          <ExternalLink className="w-3 h-3" />
+        </a>
+
         <button
           type="button"
           onClick={handleCopyDomain}
@@ -94,14 +177,28 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
         </button>
 
         <a
-          href={FIREBASE_AUTH_SETTINGS_URL}
+          href={firebaseAuthSettingsUrl}
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors"
         >
-          <span>Open Firebase Authorized Domains</span>
+          <span>Open Firebase Settings</span>
           <ExternalLink className="w-3 h-3" />
         </a>
+
+        <button
+          type="button"
+          onClick={runLiveCheck}
+          disabled={checking}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-colors disabled:opacity-60 ${
+            variant === 'dark'
+              ? 'bg-amber-900/50 hover:bg-amber-800 text-amber-100 border border-amber-500/30'
+              : 'bg-white hover:bg-slate-50 text-slate-800 border border-slate-300'
+          }`}
+        >
+          <RefreshCw className={`w-3 h-3 ${checking ? 'animate-spin' : ''}`} />
+          <span>{checking ? 'Checking...' : 'Re-check Firebase'}</span>
+        </button>
       </div>
     </div>
   );

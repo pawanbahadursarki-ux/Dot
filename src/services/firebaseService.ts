@@ -16,6 +16,7 @@ import {
   Unsubscribe,
 } from 'firebase/firestore';
 import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 import {
   AdminWithdrawalRequest,
   FeedbackItem,
@@ -208,13 +209,59 @@ export function setPendingAuthAccountMode(mode: 'customer' | 'company' | null): 
   }
 }
 
+export interface AuthorizedDomainsStatus {
+  projectId: string;
+  projectNumber: string;
+  currentHost: string;
+  authorizedDomains: string[];
+  isCurrentDomainAuthorized: boolean;
+  authorizedAppUrl: string | null;
+}
+
+export function isHostInAuthorizedDomains(hostname: string, domains: string[]): boolean {
+  const host = hostname.trim().toLowerCase();
+  if (!host || host === 'localhost' || host === '127.0.0.1') return true;
+  return domains.some((d) => {
+    const clean = d.trim().toLowerCase();
+    return clean === host || host.endsWith(`.${clean}`);
+  });
+}
+
+export async function fetchAuthorizedFirebaseDomains(): Promise<AuthorizedDomainsStatus> {
+  const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
+  const resp = await fetch(
+    `https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${encodeURIComponent(firebaseConfig.apiKey)}`
+  );
+  if (!resp.ok) {
+    throw new Error(`Unable to check Firebase Authentication domains (HTTP ${resp.status}).`);
+  }
+  const data = (await resp.json()) as {
+    projectId?: string;
+    authorizedDomains?: string[];
+  };
+  const authorizedDomains = Array.isArray(data.authorizedDomains) ? data.authorizedDomains : [];
+  const preHost =
+    authorizedDomains.find((d) => d.startsWith('ais-pre-') && d.endsWith('.run.app')) ||
+    authorizedDomains.find((d) => d.startsWith('ais-dev-') && d.endsWith('.run.app')) ||
+    null;
+
+  return {
+    projectId: firebaseConfig.projectId,
+    projectNumber: String(data.projectId || ''),
+    currentHost,
+    authorizedDomains,
+    isCurrentDomainAuthorized: isHostInAuthorizedDomains(currentHost, authorizedDomains),
+    authorizedAppUrl: preHost ? `https://${preHost}` : null,
+  };
+}
+
 function formatGoogleAuthError(err: unknown): Error {
   const code = (err as { code?: string })?.code || '';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   if (code === 'auth/unauthorized-domain') {
     const targetHost = hostname || 'pawanbahadursarki-ux.github.io';
     return new Error(
-      `This domain (${targetHost}) is not yet authorized in Firebase Authentication. Add "${targetHost}" under Firebase Console → Authentication → Settings → Authorized domains (https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/settings).`
+      `This domain (${targetHost}) is not yet authorized in Firebase Authentication for project "${firebaseConfig.projectId}". Add "${targetHost}" under Firebase Console → Authentication → Settings → Authorized domains (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings).`
     );
   }
   if (code === 'auth/popup-closed-by-user') {
