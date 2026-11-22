@@ -1,0 +1,874 @@
+{
+  "entities": {
+    "UserPublic": {
+      "title": "UserPublic",
+      "description": "Public display profile for a verified FeedbackPulse user (contains no PII).",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "nickname": {
+          "type": "string",
+          "maxLength": 60
+        },
+        "avatar": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "city": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "role": {
+          "type": "string",
+          "enum": ["consumer"]
+        },
+        "accountMode": {
+          "type": "string",
+          "enum": ["customer", "company"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "banned", "suspended"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "displayName", "role", "status", "createdAt", "updatedAt"]
+    },
+    "UserPrivateInfo": {
+      "title": "UserPrivateInfo",
+      "description": "Strictly private PII and real wallet balance belonging to a single authenticated user.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "email": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "phone": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "walletBalance": {
+          "type": "number"
+        },
+        "totalEarned": {
+          "type": "number"
+        },
+        "preferredVoiceTone": {
+          "type": "string",
+          "maxLength": 40
+        },
+        "gender": {
+          "type": "string",
+          "enum": ["male", "female", "other"]
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 20
+        },
+        "lastWithdrawalRef": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "email", "walletBalance", "totalEarned", "createdAt", "updatedAt"]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Admin directory entry for platform administrators.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["uid", "createdAt"]
+    },
+    "CompanySubscription": {
+      "title": "CompanySubscription",
+      "description": "Active company subscription granting access to mobile brand feedback datasets.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "planId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "planName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "planType": {
+          "type": "string",
+          "enum": ["single_category", "durable_limited", "unlimited"]
+        },
+        "billingCycle": {
+          "type": "string",
+          "enum": ["monthly", "yearly"]
+        },
+        "priceUSD": {
+          "type": "number"
+        },
+        "targetCategory": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "categoryName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "unlockedBrands": {
+          "type": "array"
+        },
+        "reviewQuota": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["active", "expired"]
+        },
+        "paymentRef": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "uid",
+        "planId",
+        "planName",
+        "planType",
+        "billingCycle",
+        "priceUSD",
+        "targetCategory",
+        "categoryName",
+        "unlockedBrands",
+        "reviewQuota",
+        "status",
+        "paymentRef",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Verified real payment receipt for a company subscription checkout.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "payerName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "planId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "planName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "billingCycle": {
+          "type": "string",
+          "enum": ["monthly", "yearly"]
+        },
+        "brandCategory": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "amountUSD": {
+          "type": "number"
+        },
+        "amountNPR": {
+          "type": "number"
+        },
+        "method": {
+          "type": "string",
+          "enum": ["bank", "online", "card", "khalti_qr", "khalti_api"]
+        },
+        "gateway": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "referenceId": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "orderId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "purchaseOrderId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "khaltiPidx": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "khaltiTxnId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "stage": {
+          "type": "string",
+          "enum": ["stage1_manual_qr", "stage2_khalti_api", "direct"]
+        },
+        "payerAccountOrBank": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "verifiedByAdminId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "verifiedByAdminName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "verifiedAt": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "verificationNotes": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "status": {
+          "type": "string",
+          "enum": ["completed", "verified"]
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "uid",
+        "payerName",
+        "planId",
+        "planName",
+        "billingCycle",
+        "brandCategory",
+        "amountUSD",
+        "amountNPR",
+        "method",
+        "gateway",
+        "referenceId",
+        "status",
+        "createdAt"
+      ]
+    },
+    "FeedbackSubmission": {
+      "title": "FeedbackSubmission",
+      "description": "Real customer smartphone video feedback & cart analytics submission (no PII).",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "authorName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        },
+        "authorAvatar": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "city": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "phoneId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "phoneName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "phoneBrand": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "brandKey": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "brandFolder": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "rating": {
+          "type": "number"
+        },
+        "like": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "dislike": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "comfort": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "improve": {
+          "type": "string",
+          "maxLength": 1200
+        },
+        "seconds": {
+          "type": "number"
+        },
+        "sentimentScore": {
+          "type": "number"
+        },
+        "sentimentSummary": {
+          "type": "string",
+          "maxLength": 600
+        },
+        "sentimentTone": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "feedbackCategory": {
+          "type": "string",
+          "enum": ["Bug Report", "Feature Request", "Compliment"]
+        },
+        "tags": {
+          "type": "array"
+        },
+        "osVersion": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "appVersion": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "rewardAmount": {
+          "type": "number"
+        },
+        "cartOrderId": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "cartPriceUSD": {
+          "type": "number"
+        },
+        "defectStatus": {
+          "type": "string",
+          "enum": ["open", "investigating", "fixing", "resolved"]
+        },
+        "defectResolutionNote": {
+          "type": "string",
+          "maxLength": 1000
+        },
+        "defectFixedInVersion": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "moderationStatus": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "payoutStatus": {
+          "type": "string",
+          "enum": ["pending", "credited", "rejected"]
+        },
+        "visibility": {
+          "type": "string",
+          "enum": ["company_portal", "private"]
+        },
+        "videoUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "transcriptText": {
+          "type": "string",
+          "maxLength": 2500
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "uid",
+        "authorName",
+        "phoneId",
+        "phoneName",
+        "phoneBrand",
+        "brandKey",
+        "rating",
+        "like",
+        "dislike",
+        "comfort",
+        "improve",
+        "seconds",
+        "rewardAmount",
+        "cartOrderId",
+        "cartPriceUSD",
+        "defectStatus",
+        "moderationStatus",
+        "payoutStatus",
+        "visibility",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "Real money payout withdrawal request submitted by a verified reviewer.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "userName": {
+          "type": "string",
+          "maxLength": 100
+        },
+        "gateway": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "accountNumber": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "amountNPR": {
+          "type": "number"
+        },
+        "companyFeeNPR": {
+          "type": "number"
+        },
+        "netPayoutNPR": {
+          "type": "number"
+        },
+        "status": {
+          "type": "string",
+          "enum": ["pending", "approved", "rejected"]
+        },
+        "referenceId": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "rejectionReason": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "transferReference": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "receiptNote": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "paidByAdminId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "paidByAdminName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "paidAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "uid",
+        "userName",
+        "gateway",
+        "accountNumber",
+        "amountNPR",
+        "companyFeeNPR",
+        "netPayoutNPR",
+        "status",
+        "referenceId",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "KhaltiQrSetting": {
+      "title": "KhaltiQrSetting",
+      "description": "Admin-managed Stage 1 Manual Khalti QR configuration and Stage 2 test/live mode switch.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "qrImagePath": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "accountHolderName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "khaltiNumber": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "stage1Notice": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "khaltiMode": {
+          "type": "string",
+          "enum": ["test", "live"]
+        },
+        "updatedBy": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["enabled", "qrImagePath", "accountHolderName", "updatedBy", "updatedAt"]
+    },
+    "PaymentOrder": {
+      "title": "PaymentOrder",
+      "description": "Unique subscription payment order for manual Khalti QR verification.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "purchaseOrderId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "companyName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "companyEmail": {
+          "type": "string",
+          "maxLength": 200
+        },
+        "planId": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "planName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "planType": {
+          "type": "string",
+          "enum": ["single_category", "durable_limited", "unlimited"]
+        },
+        "billingCycle": {
+          "type": "string",
+          "enum": ["monthly", "yearly"]
+        },
+        "brandCategory": {
+          "type": "string",
+          "maxLength": 64
+        },
+        "categoryName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "reviewQuota": {
+          "type": "number"
+        },
+        "amountUSD": {
+          "type": "number"
+        },
+        "amountNPR": {
+          "type": "number"
+        },
+        "amountPaisa": {
+          "type": "number"
+        },
+        "stage": {
+          "type": "string",
+          "enum": ["stage1_manual_qr", "stage2_khalti_api"]
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["khalti_qr", "khalti_api"]
+        },
+        "status": {
+          "type": "string",
+          "enum": ["initiated", "pending", "completed", "verified", "rejected", "failed", "cancelled", "refunded", "mismatch_error"]
+        },
+        "receiverKhaltiNumber": {
+          "type": "string",
+          "maxLength": 30
+        },
+        "receiverAccountName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "payerAccountOrBank": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "submittedAmountNPR": {
+          "type": "number"
+        },
+        "transactionReference": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "screenshotUrl": {
+          "type": "string",
+          "maxLength": 500
+        },
+        "pidx": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "khaltiTransactionId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "errorReason": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "verifiedByAdminId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "verifiedByAdminName": {
+          "type": "string",
+          "maxLength": 120
+        },
+        "verifiedAt": {
+          "type": "string",
+          "maxLength": 80
+        },
+        "verificationNotes": {
+          "type": "string",
+          "maxLength": 400
+        },
+        "paymentRecordId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "purchaseOrderId",
+        "uid",
+        "companyName",
+        "planId",
+        "planName",
+        "planType",
+        "billingCycle",
+        "brandCategory",
+        "categoryName",
+        "reviewQuota",
+        "amountUSD",
+        "amountNPR",
+        "amountPaisa",
+        "stage",
+        "paymentMethod",
+        "status",
+        "receiverAccountName",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "EarningsLedgerEntry": {
+      "title": "EarningsLedgerEntry",
+      "description": "Immutable backend ledger recording user feedback rewards upon admin approval and withdrawal debits/refunds.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "uid": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "entryType": {
+          "type": "string",
+          "enum": ["feedback_reward", "withdrawal_debit", "withdrawal_refund"]
+        },
+        "sourceId": {
+          "type": "string",
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "amountNPR": {
+          "type": "number"
+        },
+        "description": {
+          "type": "string",
+          "maxLength": 300
+        },
+        "status": {
+          "type": "string",
+          "enum": ["credited", "debited", "refunded"]
+        },
+        "approvedByAdminId": {
+          "type": "string",
+          "maxLength": 128
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["id", "uid", "entryType", "sourceId", "amountNPR", "description", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserPublic" },
+      "description": "Public user display profiles (no PII)."
+    },
+    "/users/{userId}/private/{docId}": {
+      "schema": { "$ref": "#/entities/UserPrivateInfo" },
+      "description": "Strictly private user PII and real wallet balances."
+    },
+    "/admins/{userId}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Platform administrators list."
+    },
+    "/subscriptions/{userId}": {
+      "schema": { "$ref": "#/entities/CompanySubscription" },
+      "description": "Company subscriptions tied to user accounts."
+    },
+    "/payments/{paymentId}": {
+      "schema": { "$ref": "#/entities/PaymentRecord" },
+      "description": "Verified company subscription payment receipts."
+    },
+    "/payment_orders/{orderId}": {
+      "schema": { "$ref": "#/entities/PaymentOrder" },
+      "description": "Khalti Stage 1 manual QR and Stage 2 API checkout orders."
+    },
+    "/app_settings/{settingId}": {
+      "schema": { "$ref": "#/entities/KhaltiQrSetting" },
+      "description": "Admin-managed Khalti QR and gateway mode configuration."
+    },
+    "/feedback/{feedbackId}": {
+      "schema": { "$ref": "#/entities/FeedbackSubmission" },
+      "description": "Real customer smartphone feedback submissions and defect statuses."
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": { "$ref": "#/entities/WithdrawalRequest" },
+      "description": "Real money withdrawal payout requests and settlements."
+    },
+    "/earnings_ledger/{entryId}": {
+      "schema": { "$ref": "#/entities/EarningsLedgerEntry" },
+      "description": "Verified ledger of approved feedback rewards and withdrawal debits/refunds."
+    }
+  }
+}

@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Camera Studio</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        /* Glassmorphism styling */
+        .glass-panel {
+            background: rgba(18, 18, 22, 0.45);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+
+        .glass-button {
+            background: rgba(255, 255, 255, 0.12);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.18);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-button:active {
+            transform: scale(0.92);
+            background: rgba(255, 255, 255, 0.25);
+        }
+
+        .glass-badge {
+            background: rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+        }
+
+        /* Custom Scrollbar hide */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* Pulse ring animation for active recording */
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.15); opacity: 0.3; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+
+        .animate-pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+
+        /* Dynamic Visualizer Canvas */
+        #viewfinderCanvas {
+            object-fit: cover;
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+</head>
+<body class="bg-black text-white h-screen w-screen overflow-hidden flex justify-center items-center">
+
+    <!-- Mobile Screen Frame Container -->
+    <div class="relative w-full h-full max-w-md max-h-[920px] bg-black sm:rounded-[44px] overflow-hidden shadow-2xl border border-white/10 flex flex-col justify-between">
+        
+        <!-- Live Camera Viewfinder Canvas (Generated High-Quality Shader/Visuals) -->
+        <div class="absolute inset-0 z-0">
+            <canvas id="viewfinderCanvas"></canvas>
+            
+            <!-- Vignette & Lighting Overlay -->
+            <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none"></div>
+            
+            <!-- Grid Lines (Toggleable) -->
+            <div id="gridOverlay" class="hidden absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none opacity-20">
+                <div class="border-r border-b border-white"></div>
+                <div class="border-r border-b border-white"></div>
+                <div class="border-b border-white"></div>
+                <div class="border-r border-b border-white"></div>
+                <div class="border-r border-b border-white"></div>
+                <div class="border-b border-white"></div>
+                <div class="border-r border-white"></div>
+                <div class="border-r border-white"></div>
+                <div></div>
+            </div>
+        </div>
+
+        <!-- TOP BAR: Navigation & Audio Selector -->
+        <header class="relative z-10 pt-6 px-4 flex items-center justify-between">
+            <!-- Close / Back Button -->
+            <button class="glass-button w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+
+            <!-- Sound Selector Capsule -->
+            <button id="soundSelector" class="glass-panel px-4 py-2 rounded-full flex items-center gap-2 max-w-[190px] text-xs font-medium tracking-wide border border-white/15 hover:border-white/30 transition-all">
+                <i data-lucide="music" class="w-3.5 h-3.5 text-rose-400 animate-pulse"></i>
+                <span id="soundTitle" class="truncate text-white/90">Add Sound · Original</span>
+                <i data-lucide="chevron-down" class="w-3.5 h-3.5 text-white/50 shrink-0"></i>
+            </button>
+
+            <!-- Quick Flash Toggle -->
+            <button id="flashBtn" onclick="toggleFlash()" class="glass-button w-10 h-10 rounded-full flex items-center justify-center text-white/90 hover:text-white">
+                <i id="flashIcon" data-lucide="zap-off" class="w-5 h-5"></i>
+            </button>
+        </header>
+
+        <!-- RECORDING TIMER & INDICATOR (Hidden by default, shown during recording) -->
+        <div id="recordingHeader" class="absolute top-20 left-1/2 -translate-x-1/2 z-10 hidden flex-col items-center gap-1.5">
+            <div class="glass-badge px-3 py-1 rounded-full flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                <span id="timerDisplay" class="font-mono text-xs font-semibold tracking-wider text-rose-300">00:00.0</span>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR: Studio Tools -->
+        <aside class="absolute right-4 top-24 z-10 flex flex-col items-center gap-4">
+            <!-- Flip Camera -->
+            <button onclick="flipCamera()" class="group flex flex-col items-center gap-1">
+                <div class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105">
+                    <i data-lucide="refresh-cw" class="w-5 h-5 transition-transform duration-500 group-hover:rotate-180"></i>
+                </div>
+                <span class="text-[10px] font-medium text-white/70 shadow-sm">Flip</span>
+            </button>
+
+            <!-- Speed Control -->
+            <button onclick="cycleSpeed()" class="group flex flex-col items-center gap-1">
+                <div class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105">
+                    <span id="speedLabel" class="text-xs font-bold tracking-tighter">1x</span>
+                </div>
+                <span class="text-[10px] font-medium text-white/70">Speed</span>
+            </button>
+
+            <!-- Filters -->
+            <button onclick="cycleFilter()" class="group flex flex-col items-center gap-1">
+                <div class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105 relative">
+                    <i data-lucide="sparkles" class="w-5 h-5 text-amber-300"></i>
+                    <span id="filterDot" class="absolute top-2 right-2 w-1.5 h-1.5 bg-amber-400 rounded-full hidden"></span>
+                </div>
+                <span class="text-[10px] font-medium text-white/70">Filters</span>
+            </button>
+
+            <!-- Retouch / Beauty -->
+            <button onclick="toggleRetouch()" class="group flex flex-col items-center gap-1">
+                <div id="retouchBtn" class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105">
+                    <i data-lucide="wand-2" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-medium text-white/70">Beautify</span>
+            </button>
+
+            <!-- Timer Delay -->
+            <button onclick="cycleTimer()" class="group flex flex-col items-center gap-1">
+                <div class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105">
+                    <i data-lucide="timer" class="w-5 h-5"></i>
+                </div>
+                <span id="timerLabel" class="text-[10px] font-medium text-white/70">Off</span>
+            </button>
+
+            <!-- Grid Lines Toggle -->
+            <button onclick="toggleGrid()" class="group flex flex-col items-center gap-1">
+                <div id="gridBtn" class="glass-button w-11 h-11 rounded-full flex items-center justify-center text-white/90 group-hover:scale-105">
+                    <i data-lucide="grid" class="w-5 h-5"></i>
+                </div>
+                <span class="text-[10px] font-medium text-white/70">Grid</span>
+            </button>
+        </aside>
+
+        <!-- BOTTOM CONTROLS & MODE SWITCHER -->
+        <footer class="relative z-10 pb-6 pt-4 px-6 flex flex-col gap-5 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
+            
+            <!-- Record Button Bar -->
+            <div class="flex items-center justify-between px-4">
+                
+                <!-- Gallery Upload Thumbnail -->
+                <button class="relative group flex flex-col items-center gap-1">
+                    <div class="w-11 h-11 rounded-xl overflow-hidden border-2 border-white/30 group-hover:border-white transition-all shadow-lg relative">
+                        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80" alt="Gallery preview" class="w-full h-full object-cover">
+                        <div class="absolute inset-0 bg-black/10 group-hover:bg-transparent"></div>
+                    </div>
+                    <span class="text-[10px] font-medium text-white/80">Upload</span>
+                </button>
+
+                <!-- MAIN RECORD BUTTON -->
+                <div class="relative flex items-center justify-center">
+                    <!-- Outer Glowing Pulse Ring when Recording -->
+                    <div id="recordRing" class="absolute w-24 h-24 rounded-full border-2 border-rose-500/50 hidden animate-pulse-ring"></div>
+
+                    <button id="recordBtn" onclick="toggleRecord()" class="relative w-20 h-20 rounded-full border-4 border-white flex items-center justify-center transition-all duration-300 ease-out focus:outline-none group">
+                        <!-- Center Core Inner Circle -->
+                        <div id="recordCore" class="w-16 h-16 rounded-full bg-rose-500 transition-all duration-300 group-hover:scale-105 shadow-[0_0_20px_rgba(244,63,94,0.6)]"></div>
+                    </button>
+                </div>
+
+                <!-- Effects Library Button -->
+                <button class="flex flex-col items-center gap-1 group">
+                    <div class="glass-button w-11 h-11 rounded-xl flex items-center justify-center text-white/90 group-hover:scale-105">
+                        <i data-lucide="smile" class="w-6 h-6 text-amber-400"></i>
+                    </div>
+                    <span class="text-[10px] font-medium text-white/80">Effects</span>
+                </button>
+            </div>
+
+            <!-- Horizontal Mode Switcher -->
+            <div class="w-full overflow-x-auto no-scrollbar py-1">
+                <div class="flex items-center justify-center gap-6 min-w-max px-8 text-xs font-semibold tracking-wider">
+                    <button onclick="setMode('photo')" class="mode-btn text-white/40 hover:text-white/80 transition-colors">PHOTO</button>
+                    <button onclick="setMode('video')" class="mode-btn text-white font-bold relative py-1">
+                        VIDEO
+                        <span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-rose-500"></span>
+                    </button>
+                    <button onclick="setMode('quick')" class="mode-btn text-white/40 hover:text-white/80 transition-colors">QUICK</button>
+                    <button onclick="setMode('live')" class="mode-btn text-white/40 hover:text-white/80 transition-colors flex items-center gap-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
+                        LIVE
+                    </button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- AUDIO SELECTION MODAL (Minimalist Glass Drawer) -->
+    <div id="soundModal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-md hidden flex items-end justify-center transition-opacity duration-300">
+        <div class="w-full max-w-md bg-zinc-900/90 border-t border-white/10 rounded-t-3xl p-6 flex flex-col gap-4">
+            <div class="flex items-center justify-between border-b border-white/10 pb-4">
+                <h3 class="font-bold text-base flex items-center gap-2">
+                    <i data-lucide="music" class="w-4 h-4 text-rose-500"></i> Sounds & Audio
+                </h3>
+                <button onclick="toggleSoundModal()" class="text-white/50 hover:text-white">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            
+            <div class="flex flex-col gap-2 max-h-64 overflow-y-auto no-scrollbar">
+                <!-- Sound Item 1 -->
+                <div onclick="selectSound('Neon Nights - Cyber Synth')" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-rose-500/20 flex items-center justify-center text-rose-400">
+                            <i data-lucide="disc" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-white">Neon Nights</p>
+                            <p class="text-xs text-white/50">Cyber Synth • 0:30</p>
+                        </div>
+                    </div>
+                    <i data-lucide="play" class="w-4 h-4 text-white/70"></i>
+                </div>
+
+                <!-- Sound Item 2 -->
+                <div onclick="selectSound('Chill Lofi Vibes - Ambient')" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400">
+                            <i data-lucide="radio" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-white">Chill Lofi Vibes</p>
+                            <p class="text-xs text-white/50">Ambient Beats • 0:45</p>
+                        </div>
+                    </div>
+                    <i data-lucide="play" class="w-4 h-4 text-white/70"></i>
+                </div>
+
+                <!-- Sound Item 3 -->
+                <div onclick="selectSound('Summer Groove - Pop High')" class="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 cursor-pointer transition-colors">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-500/20 flex items-center justify-center text-emerald-400">
+                            <i data-lucide="music-4" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <p class="text-sm font-semibold text-white">Summer Groove</p>
+                            <p class="text-xs text-white/50">Pop Hits • 0:15</p>
+                        </div>
+                    </div>
+                    <i data-lucide="play" class="w-4 h-4 text-white/70"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Canvas Viewfinder Visualizer (Simulating real camera stream with dynamic shaders/procedural artwork)
+        const canvas = document.getElementById('viewfinderCanvas');
+        const ctx = canvas.getContext('2d');
+        let width, height;
+        let animationFrame;
+        let time = 0;
+        
+        // Filter modes state
+        let currentFilterIndex = 0;
+        const filters = [
+            { name: 'Normal', color1: '#1a102f', color2: '#050515', accent: '#ff4b72' },
+            { name: 'Warm Cinema', color1: '#341509', color2: '#0f0502', accent: '#ff8c42' },
+            { name: 'Cyberpunk', color1: '#092934', color2: '#1b021a', accent: '#00f0ff' },
+            { name: 'B&W Film', color1: '#222222', color2: '#050505', accent: '#ffffff' }
+        ];
+
+        function resizeCanvas() {
+            width = canvas.width = canvas.parentElement.clientWidth;
+            height = canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Render high-end procedural camera stream visualizer
+        function renderViewfinder() {
+            time += 0.015;
+            const activeFilter = filters[currentFilterIndex];
+
+            // Radial gradient background
+            const grad = ctx.createRadialGradient(
+                width / 2 + Math.sin(time) * 40, 
+                height / 2 + Math.cos(time * 0.8) * 40, 
+                20, 
+                width / 2, 
+                height / 2, 
+                Math.max(width, height) * 0.8
+            );
+
+            if (currentFilterIndex === 3) {
+                // Monochrome filter logic
+                grad.addColorStop(0, '#333333');
+                grad.addColorStop(0.6, '#111111');
+                grad.addColorStop(1, '#000000');
+            } else {
+                grad.addColorStop(0, activeFilter.color1);
+                grad.addColorStop(0.7, activeFilter.color2);
+                grad.addColorStop(1, '#000000');
+            }
+
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Draw abstract camera preview fluid visual nodes (Simulating subject depth)
+            const nodeCount = 3;
+            for (let i = 0; i < nodeCount; i++) {
+                ctx.save();
+                ctx.beginPath();
+                const radius = 120 + Math.sin(time * 1.5 + i) * 20;
+                const x = width / 2 + Math.cos(time + i * 2) * 60;
+                const y = height / 2.2 + Math.sin(time * 1.2 + i) * 40;
+
+                const nodeGrad = ctx.createRadialGradient(x, y, 5, x, y, radius);
+                if (currentFilterIndex === 3) {
+                    nodeGrad.addColorStop(0, 'rgba(255, 255, 255, 0.15)');
+                    nodeGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                } else {
+                    nodeGrad.addColorStop(0, activeFilter.accent + '33');
+                    nodeGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                }
+
+                ctx.fillStyle = nodeGrad;
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Subtle noise overlay for camera sensor feel
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.015)';
+            for (let i = 0; i < 60; i++) {
+                ctx.fillRect(Math.random() * width, Math.random() * height, 1.5, 1.5);
+            }
+
+            animationFrame = requestAnimationFrame(renderViewfinder);
+        }
+        renderViewfinder();
+
+        // STATE & INTERACTION LOGIC
+        let isRecording = false;
+        let timerInterval = null;
+        let recordStartTime = 0;
+        let isFlashOn = false;
+        let speeds = ['0.5x', '1x', '2x', '3x'];
+        let speedIdx = 1;
+        let timerDelays = ['Off', '3s', '10s'];
+        let timerIdx = 0;
+        let retouchActive = false;
+        let gridActive = false;
+
+        // Record Button Toggle Logic
+        function toggleRecord() {
+            isRecording = !isRecording;
+            const recordCore = document.getElementById('recordCore');
+            const recordRing = document.getElementById('recordRing');
+            const recordingHeader = document.getElementById('recordingHeader');
+
+            if (isRecording) {
+                // UI changes for Recording state
+                recordCore.classList.remove('w-16', 'h-16', 'rounded-full');
+                recordCore.classList.add('w-8', 'h-8', 'rounded-md'); // Transform into Stop Square
+                recordRing.classList.remove('hidden');
+                recordingHeader.classList.remove('hidden');
+                recordingHeader.classList.add('flex');
+
+                // Start Timer
+                recordStartTime = Date.now();
+                timerInterval = setInterval(updateTimer, 100);
+            } else {
+                // UI changes for Stopped state
+                recordCore.classList.remove('w-8', 'h-8', 'rounded-md');
+                recordCore.classList.add('w-16', 'h-16', 'rounded-full');
+                recordRing.classList.add('hidden');
+                recordingHeader.classList.add('hidden');
+                recordingHeader.classList.remove('flex');
+
+                // Stop Timer
+                clearInterval(timerInterval);
+                document.getElementById('timerDisplay').innerText = '00:00.0';
+            }
+        }
+
+        // Timer Update
+        function updateTimer() {
+            const elapsed = Date.now() - recordStartTime;
+            const seconds = Math.floor(elapsed / 1000);
+            const millis = Math.floor((elapsed % 1000) / 100);
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            
+            const formattedMins = String(mins).padStart(2, '0');
+            const formattedSecs = String(secs).padStart(2, '0');
+            document.getElementById('timerDisplay').innerText = `${formattedMins}:${formattedSecs}.${millis}`;
+        }
+
+        // Camera Flip Animation Trigger
+        function flipCamera() {
+            canvas.classList.add('transition-transform', 'duration-500', 'scale-x-0');
+            setTimeout(() => {
+                canvas.classList.remove('scale-x-0');
+            }, 300);
+        }
+
+        // Flash Toggle
+        function toggleFlash() {
+            isFlashOn = !isFlashOn;
+            const flashIcon = document.getElementById('flashIcon');
+            if (isFlashOn) {
+                flashIcon.setAttribute('data-lucide', 'zap');
+                flashIcon.classList.add('text-amber-400');
+            } else {
+                flashIcon.setAttribute('data-lucide', 'zap-off');
+                flashIcon.classList.remove('text-amber-400');
+            }
+            lucide.createIcons();
+        }
+
+        // Speed Selector
+        function cycleSpeed() {
+            speedIdx = (speedIdx + 1) % speeds.length;
+            document.getElementById('speedLabel').innerText = speeds[speedIdx];
+        }
+
+        // Filters Cycle
+        function cycleFilter() {
+            currentFilterIndex = (currentFilterIndex + 1) % filters.length;
+            const dot = document.getElementById('filterDot');
+            if (currentFilterIndex > 0) {
+                dot.classList.remove('hidden');
+            } else {
+                dot.classList.add('hidden');
+            }
+        }
+
+        // Beautify/Retouch Toggle
+        function toggleRetouch() {
+            retouchActive = !retouchActive;
+            const btn = document.getElementById('retouchBtn');
+            if (retouchActive) {
+                btn.classList.add('bg-rose-500/30', 'border-rose-400', 'text-rose-300');
+            } else {
+                btn.classList.remove('bg-rose-500/30', 'border-rose-400', 'text-rose-300');
+            }
+        }
+
+        // Timer Cycle
+        function cycleTimer() {
+            timerIdx = (timerIdx + 1) % timerDelays.length;
+            document.getElementById('timerLabel').innerText = timerDelays[timerIdx];
+        }
+
+        // Grid Lines Toggle
+        function toggleGrid() {
+            gridActive = !gridActive;
+            const grid = document.getElementById('gridOverlay');
+            const btn = document.getElementById('gridBtn');
+            if (gridActive) {
+                grid.classList.remove('hidden');
+                btn.classList.add('bg-white/30');
+            } else {
+                grid.classList.add('hidden');
+                btn.classList.remove('bg-white/30');
+            }
+        }
+
+        // Sound Selection Modal Handlers
+        document.getElementById('soundSelector').addEventListener('click', toggleSoundModal);
+        
+        function toggleSoundModal() {
+            const modal = document.getElementById('soundModal');
+            modal.classList.toggle('hidden');
+        }
+
+        function selectSound(title) {
+            document.getElementById('soundTitle').innerText = title;
+            toggleSoundModal();
+        }
+
+        // Bottom Mode Selector
+        function setMode(mode) {
+            const buttons = document.querySelectorAll('.mode-btn');
+            buttons.forEach(btn => {
+                btn.className = 'mode-btn text-white/40 hover:text-white/80 transition-colors';
+                btn.innerHTML = btn.innerText;
+            });
+
+            const activeBtn = event.currentTarget;
+            activeBtn.className = 'mode-btn text-white font-bold relative py-1';
+            
+            if (mode === 'live') {
+                activeBtn.innerHTML = `<span class="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block mr-1"></span>LIVE<span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-rose-500"></span>`;
+            } else {
+                activeBtn.innerHTML = `${mode.toUpperCase()}<span class="absolute bottom-0 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-rose-500"></span>`;
+            }
+        }
+    </script>
+</body>
+</html>

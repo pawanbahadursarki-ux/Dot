@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dot - 1-Min Video Reviews & AI Platform</title>
+    <meta name="description" content="Ultra-simple 1-minute TikTok-style video product feedback recording with dynamic rewards, Nepal and global payout gateways, and enterprise AI intelligence synthesis." />
+    <meta property="og:title" content="Dot - 1-Min Video Reviews & AI Platform" />
+    <meta property="og:description" content="Ultra-simple 1-minute TikTok-style video product feedback recording with dynamic rewards, Nepal and global payout gateways, and enterprise AI intelligence synthesis." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" type="image/svg+xml" href="./dot-logo.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;700;800&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;700;800&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" media="print" onload="this.media='all'">
+    <noscript>
+      <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;700;800&family=Figtree:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    </noscript>
+  </head>
+  <body class="antialiased selection:bg-rose-500 selection:text-white">
+    <div id="root">
+      <div id="dot-boot-splash" style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:#F5F2EC;color:#17171A;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;">
+        <div style="width:48px;height:48px;border-radius:14px;background:linear-gradient(45deg,#4F46E5,#7C3AED,#EC4899);display:flex;align-items:center;justify-content:center;box-shadow:0 8px 20px rgba(79,70,229,0.22);">
+          <div style="width:18px;height:18px;border-radius:9999px;background:#FFFFFF;"></div>
+        </div>
+        <div id="dot-boot-title" style="font-size:18px;font-weight:800;letter-spacing:-0.02em;">Dot</div>
+        <div id="dot-boot-status" style="font-size:13px;color:#6B675F;max-width:340px;line-height:1.5;">Loading Dot...</div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        var timer = null;
+        var redirected = false;
+        function getBaseDirPath() {
+          var p = window.location.pathname || '/';
+          if (p.slice(-11) === '/index.html') {
+            return p.slice(0, -10);
+          }
+          return p.charAt(p.length - 1) === '/' ? p : p + '/';
+        }
+        function hasUnbuiltEntryScript() {
+          var scripts = document.querySelectorAll('script[type="module"]');
+          for (var i = 0; i < scripts.length; i++) {
+            var src = scripts[i].getAttribute('src') || '';
+            if (src.indexOf('/src/main.tsx') !== -1) {
+              return true;
+            }
+          }
+          return false;
+        }
+        function tryRedirectToDist(onFallback) {
+          if (redirected || window.__DOT_APP_MOUNTED__) return;
+          if (!hasUnbuiltEntryScript() || window.location.pathname.indexOf('/dist/') !== -1) {
+            onFallback();
+            return;
+          }
+          var distUrl = getBaseDirPath() + 'dist/';
+          fetch(distUrl + 'index.html', { method: 'GET', cache: 'no-store' })
+            .then(function (res) {
+              if (res.ok && !window.__DOT_APP_MOUNTED__) {
+                redirected = true;
+                window.location.replace(distUrl + window.location.search + window.location.hash);
+              } else {
+                onFallback();
+              }
+            })
+            .catch(onFallback);
+        }
+        function getGithubRepoBaseUrl() {
+          var host = window.location.hostname || '';
+          if (host.indexOf('.github.io') === -1) return null;
+          var owner = host.split('.')[0];
+          var segs = (window.location.pathname || '').split('/').filter(Boolean);
+          var repo = segs[0] || (owner + '.github.io');
+          return 'https://github.com/' + owner + '/' + repo;
+        }
+        function renderIssueMessage(reason) {
+          if (window.__DOT_APP_MOUNTED__ || redirected) return;
+          var statusEl = document.getElementById('dot-boot-status');
+          var splashEl = document.getElementById('dot-boot-splash');
+          if (!statusEl || !splashEl) return;
+          var repoUrl = getGithubRepoBaseUrl();
+          if (hasUnbuiltEntryScript() && repoUrl) {
+            statusEl.innerHTML =
+              'GitHub Pages is currently serving unbuilt source files.<br><br>' +
+              '1. Open <strong>Settings &rarr; Pages &rarr; Source</strong> and select <strong>GitHub Actions</strong>.<br>' +
+              '2. Run the <strong>Deploy Dot to GitHub Pages</strong> workflow in the <strong>Actions</strong> tab.';
+            if (!document.getElementById('dot-gh-links')) {
+              var links = document.createElement('div');
+              links.id = 'dot-gh-links';
+              links.style.cssText = 'display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:8px;';
+              var settingsLink = document.createElement('a');
+              settingsLink.href = repoUrl + '/settings/pages';
+              settingsLink.target = '_blank';
+              settingsLink.rel = 'noopener noreferrer';
+              settingsLink.textContent = 'Open Pages Settings';
+              settingsLink.style.cssText = 'padding:10px 16px;border-radius:12px;background:#4F46E5;color:#FFFFFF;font-size:13px;font-weight:700;text-decoration:none;';
+              var actionsLink = document.createElement('a');
+              actionsLink.href = repoUrl + '/actions';
+              actionsLink.target = '_blank';
+              actionsLink.rel = 'noopener noreferrer';
+              actionsLink.textContent = 'Open Actions Tab';
+              actionsLink.style.cssText = 'padding:10px 16px;border-radius:12px;background:#EAE5DB;color:#17171A;font-size:13px;font-weight:700;text-decoration:none;';
+              links.appendChild(settingsLink);
+              links.appendChild(actionsLink);
+              splashEl.appendChild(links);
+            }
+          } else {
+            statusEl.textContent = reason || 'Unable to load the application bundle. Please refresh the page.';
+          }
+          if (!document.getElementById('dot-boot-reload')) {
+            var btn = document.createElement('button');
+            btn.id = 'dot-boot-reload';
+            btn.type = 'button';
+            btn.textContent = 'Reload Dot';
+            btn.style.cssText = 'margin-top:8px;padding:10px 18px;border-radius:12px;border:0;background:#17171A;color:#FFFFFF;font-size:13px;font-weight:700;cursor:pointer;';
+            btn.onclick = function () { window.location.reload(); };
+            splashEl.appendChild(btn);
+          }
+        }
+        function showBootIssue(reason) {
+          tryRedirectToDist(function () {
+            renderIssueMessage(reason);
+          });
+        }
+        window.addEventListener('error', function (e) {
+          if (window.__DOT_APP_MOUNTED__) return;
+          if (e && e.target && e.target.tagName === 'SCRIPT') {
+            showBootIssue('Failed to load application script.');
+          } else if (e && e.message) {
+            showBootIssue('Startup error: ' + e.message);
+          }
+        }, true);
+        window.addEventListener('unhandledrejection', function (e) {
+          if (window.__DOT_APP_MOUNTED__) return;
+          var msg = e && e.reason && e.reason.message ? e.reason.message : '';
+          if (msg) showBootIssue('Startup error: ' + msg);
+        });
+        timer = window.setTimeout(function () {
+          if (!window.__DOT_APP_MOUNTED__) {
+            showBootIssue('The app is taking longer than expected to start.');
+          }
+        }, 4000);
+        window.__DOT_CLEAR_BOOT_TIMER__ = function () {
+          if (timer) window.clearTimeout(timer);
+        };
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx" onerror="window.dispatchEvent(new CustomEvent('dot-entry-error'))"></script>
+    <script>
+      window.addEventListener('dot-entry-error', function () {
+        if (window.__DOT_APP_MOUNTED__) return;
+        var p = window.location.pathname || '/';
+        if (p.slice(-11) === '/index.html') p = p.slice(0, -10);
+        if (p.charAt(p.length - 1) !== '/') p += '/';
+        if (p.indexOf('/dist/') !== -1) return;
+        fetch(p + 'dist/index.html', { method: 'GET', cache: 'no-store' })
+          .then(function (res) {
+            if (res.ok) {
+              window.location.replace(p + 'dist/' + window.location.search + window.location.hash);
+            }
+          })
+          .catch(function () {});
+      });
+    </script>
+  </body>
+</html>
+

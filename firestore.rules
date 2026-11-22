@@ -1,0 +1,648 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Core Primitives
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isBootstrappedAdmin() {
+      return isVerifiedUser() && request.auth.token.email == 'pawanbahadursarki@gmail.com';
+    }
+
+    function isAdmin() {
+      return isBootstrappedAdmin() || (isVerifiedUser() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // Validation Helpers (blueprint-synchronized)
+    function isValidUserPublic(data, userId) {
+      return data.keys().hasAll(['uid', 'displayName', 'role', 'status', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'displayName', 'nickname', 'avatar', 'city', 'role', 'accountMode', 'status', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 100
+        && (!('nickname' in data) || (data.nickname is string && data.nickname.size() <= 60))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 500))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 80))
+        && data.role == 'consumer'
+        && (!('accountMode' in data) || data.accountMode in ['customer', 'company'])
+        && data.status in ['active', 'banned', 'suspended']
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidUserPrivate(data, userId) {
+      return data.keys().hasAll(['uid', 'email', 'walletBalance', 'totalEarned', 'createdAt', 'updatedAt'])
+        && data.keys().hasOnly(['uid', 'email', 'phone', 'walletBalance', 'totalEarned', 'preferredVoiceTone', 'gender', 'title', 'lastWithdrawalRef', 'createdAt', 'updatedAt'])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.email is string && data.email.size() >= 3 && data.email.size() <= 200
+        && (!('phone' in data) || (data.phone is string && data.phone.size() <= 30))
+        && data.walletBalance is number && data.walletBalance >= 0 && data.walletBalance <= 1000000
+        && data.totalEarned is number && data.totalEarned >= 0 && data.totalEarned <= 1000000
+        && (!('preferredVoiceTone' in data) || (data.preferredVoiceTone is string && data.preferredVoiceTone.size() <= 40))
+        && (!('gender' in data) || data.gender in ['male', 'female', 'other'])
+        && (!('title' in data) || (data.title is string && data.title.size() <= 20))
+        && (!('lastWithdrawalRef' in data) || isValidId(data.lastWithdrawalRef))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSubscription(data, userId) {
+      return data.keys().hasAll([
+          'uid', 'planId', 'planName', 'planType', 'billingCycle', 'priceUSD',
+          'targetCategory', 'categoryName', 'unlockedBrands', 'reviewQuota',
+          'status', 'paymentRef', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'planId', 'planName', 'planType', 'billingCycle', 'priceUSD',
+          'targetCategory', 'categoryName', 'unlockedBrands', 'reviewQuota',
+          'status', 'paymentRef', 'createdAt', 'updatedAt'
+        ])
+        && data.uid is string && data.uid == userId && isValidId(data.uid)
+        && data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 64
+        && data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 120
+        && data.planType in ['single_category', 'durable_limited', 'unlimited']
+        && data.billingCycle in ['monthly', 'yearly']
+        && data.priceUSD is number && data.priceUSD > 0 && data.priceUSD <= 5000
+        && data.targetCategory is string && data.targetCategory.size() >= 1 && data.targetCategory.size() <= 64
+        && data.categoryName is string && data.categoryName.size() >= 1 && data.categoryName.size() <= 120
+        && data.unlockedBrands is list && data.unlockedBrands.size() >= 1 && data.unlockedBrands.size() <= 10 && data.unlockedBrands[0] is string
+        && data.reviewQuota is number && data.reviewQuota > 0 && data.reviewQuota <= 1000000
+        && data.status in ['active', 'expired']
+        && data.paymentRef is string && isValidId(data.paymentRef)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPayment(data, paymentId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'payerName', 'planId', 'planName', 'billingCycle',
+          'brandCategory', 'amountUSD', 'amountNPR', 'method', 'gateway',
+          'referenceId', 'status', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'payerName', 'planId', 'planName', 'billingCycle',
+          'brandCategory', 'amountUSD', 'amountNPR', 'method', 'gateway',
+          'referenceId', 'orderId', 'purchaseOrderId', 'khaltiPidx', 'khaltiTxnId',
+          'stage', 'payerAccountOrBank', 'verifiedByAdminId', 'verifiedByAdminName',
+          'verifiedAt', 'verificationNotes', 'status', 'createdAt'
+        ])
+        && data.id is string && data.id == paymentId && isValidId(data.id)
+        && data.uid is string && isValidId(data.uid)
+        && data.payerName is string && data.payerName.size() >= 1 && data.payerName.size() <= 120
+        && data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 64
+        && data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 120
+        && data.billingCycle in ['monthly', 'yearly']
+        && data.brandCategory is string && data.brandCategory.size() >= 1 && data.brandCategory.size() <= 64
+        && data.amountUSD is number && data.amountUSD > 0 && data.amountUSD <= 10000
+        && data.amountNPR is number && data.amountNPR > 0 && data.amountNPR <= 2000000
+        && data.method in ['bank', 'online', 'card', 'khalti_qr', 'khalti_api']
+        && data.gateway is string && data.gateway.size() >= 1 && data.gateway.size() <= 80
+        && data.referenceId is string && data.referenceId.size() >= 1 && data.referenceId.size() <= 120
+        && (!('orderId' in data) || isValidId(data.orderId))
+        && (!('purchaseOrderId' in data) || (data.purchaseOrderId is string && data.purchaseOrderId.size() <= 128))
+        && (!('khaltiPidx' in data) || (data.khaltiPidx is string && data.khaltiPidx.size() <= 128))
+        && (!('khaltiTxnId' in data) || (data.khaltiTxnId is string && data.khaltiTxnId.size() <= 128))
+        && (!('stage' in data) || data.stage in ['stage1_manual_qr', 'stage2_khalti_api', 'direct'])
+        && (!('payerAccountOrBank' in data) || (data.payerAccountOrBank is string && data.payerAccountOrBank.size() <= 120))
+        && (!('verifiedByAdminId' in data) || (data.verifiedByAdminId is string && data.verifiedByAdminId.size() <= 128))
+        && (!('verifiedByAdminName' in data) || (data.verifiedByAdminName is string && data.verifiedByAdminName.size() <= 120))
+        && (!('verifiedAt' in data) || (data.verifiedAt is string && data.verifiedAt.size() <= 80))
+        && (!('verificationNotes' in data) || (data.verificationNotes is string && data.verificationNotes.size() <= 400))
+        && data.status in ['completed', 'verified']
+        && data.createdAt is timestamp;
+    }
+
+    function isValidKhaltiQrSetting(data) {
+      return data.keys().hasAll([
+          'enabled', 'qrImagePath', 'accountHolderName', 'updatedBy', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'enabled', 'qrImagePath', 'accountHolderName', 'khaltiNumber', 'stage1Notice', 'khaltiMode', 'updatedBy', 'updatedAt'
+        ])
+        && data.enabled is bool
+        && data.qrImagePath is string && data.qrImagePath.size() >= 1 && data.qrImagePath.size() <= 500
+        && data.accountHolderName is string && data.accountHolderName.size() >= 1 && data.accountHolderName.size() <= 120
+        && (!('khaltiNumber' in data) || (data.khaltiNumber is string && data.khaltiNumber.size() <= 30))
+        && (!('stage1Notice' in data) || (data.stage1Notice is string && data.stage1Notice.size() <= 400))
+        && (!('khaltiMode' in data) || data.khaltiMode in ['test', 'live'])
+        && data.updatedBy is string && data.updatedBy.size() >= 1 && data.updatedBy.size() <= 128
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidPaymentOrder(data, orderId) {
+      return data.keys().hasAll([
+          'id', 'purchaseOrderId', 'uid', 'companyName', 'planId', 'planName',
+          'planType', 'billingCycle', 'brandCategory', 'categoryName', 'reviewQuota',
+          'amountUSD', 'amountNPR', 'amountPaisa', 'stage', 'paymentMethod', 'status',
+          'receiverAccountName', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'purchaseOrderId', 'uid', 'companyName', 'companyEmail', 'planId', 'planName',
+          'planType', 'billingCycle', 'brandCategory', 'categoryName', 'reviewQuota',
+          'amountUSD', 'amountNPR', 'amountPaisa', 'stage', 'paymentMethod', 'status',
+          'receiverKhaltiNumber', 'receiverAccountName', 'payerAccountOrBank',
+          'submittedAmountNPR', 'transactionReference', 'screenshotUrl', 'pidx', 'khaltiTransactionId',
+          'errorReason', 'verifiedByAdminId', 'verifiedByAdminName', 'verifiedAt',
+          'verificationNotes', 'paymentRecordId', 'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == orderId && isValidId(data.id)
+        && data.purchaseOrderId is string && isValidId(data.purchaseOrderId)
+        && data.uid is string && isValidId(data.uid)
+        && data.companyName is string && data.companyName.size() >= 1 && data.companyName.size() <= 120
+        && (!('companyEmail' in data) || (data.companyEmail is string && data.companyEmail.size() <= 200))
+        && data.planId is string && data.planId.size() >= 1 && data.planId.size() <= 64
+        && data.planName is string && data.planName.size() >= 1 && data.planName.size() <= 120
+        && data.planType in ['single_category', 'durable_limited', 'unlimited']
+        && data.billingCycle in ['monthly', 'yearly']
+        && data.brandCategory is string && data.brandCategory.size() >= 1 && data.brandCategory.size() <= 64
+        && data.categoryName is string && data.categoryName.size() >= 1 && data.categoryName.size() <= 120
+        && data.reviewQuota is number && data.reviewQuota > 0 && data.reviewQuota <= 1000000
+        && data.amountUSD is number && data.amountUSD > 0 && data.amountUSD <= 10000
+        && data.amountNPR is number && data.amountNPR > 0 && data.amountNPR <= 2000000
+        && data.amountPaisa is number && data.amountPaisa >= 100 && data.amountPaisa <= 200000000
+        && data.stage in ['stage1_manual_qr', 'stage2_khalti_api']
+        && data.paymentMethod in ['khalti_qr', 'khalti_api']
+        && data.status in ['initiated', 'pending', 'completed', 'verified', 'rejected', 'failed', 'cancelled', 'refunded', 'mismatch_error']
+        && (!('receiverKhaltiNumber' in data) || (data.receiverKhaltiNumber is string && data.receiverKhaltiNumber.size() <= 30))
+        && data.receiverAccountName is string && data.receiverAccountName.size() >= 1 && data.receiverAccountName.size() <= 120
+        && (!('payerAccountOrBank' in data) || (data.payerAccountOrBank is string && data.payerAccountOrBank.size() <= 120))
+        && (!('submittedAmountNPR' in data) || (data.submittedAmountNPR is number && data.submittedAmountNPR >= 0 && data.submittedAmountNPR <= 2000000))
+        && (!('transactionReference' in data) || (data.transactionReference is string && data.transactionReference.size() <= 120))
+        && (!('screenshotUrl' in data) || (data.screenshotUrl is string && data.screenshotUrl.size() <= 500))
+        && (!('pidx' in data) || (data.pidx is string && data.pidx.size() <= 128))
+        && (!('khaltiTransactionId' in data) || (data.khaltiTransactionId is string && data.khaltiTransactionId.size() <= 128))
+        && (!('errorReason' in data) || (data.errorReason is string && data.errorReason.size() <= 400))
+        && (!('verifiedByAdminId' in data) || (data.verifiedByAdminId is string && data.verifiedByAdminId.size() <= 128))
+        && (!('verifiedByAdminName' in data) || (data.verifiedByAdminName is string && data.verifiedByAdminName.size() <= 120))
+        && (!('verifiedAt' in data) || (data.verifiedAt is string && data.verifiedAt.size() <= 80))
+        && (!('verificationNotes' in data) || (data.verificationNotes is string && data.verificationNotes.size() <= 400))
+        && (!('paymentRecordId' in data) || (data.paymentRecordId is string && data.paymentRecordId.size() <= 128))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidFeedback(data, feedbackId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'authorName', 'phoneId', 'phoneName', 'phoneBrand',
+          'brandKey', 'rating', 'like', 'dislike', 'comfort', 'improve',
+          'seconds', 'rewardAmount', 'cartOrderId', 'cartPriceUSD',
+          'defectStatus', 'moderationStatus', 'payoutStatus', 'visibility',
+          'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'authorName', 'authorAvatar', 'city', 'phoneId', 'phoneName',
+          'phoneBrand', 'brandKey', 'brandFolder', 'rating', 'like', 'dislike',
+          'comfort', 'improve', 'seconds', 'sentimentScore', 'sentimentSummary',
+          'sentimentTone', 'feedbackCategory', 'tags', 'osVersion', 'appVersion',
+          'rewardAmount', 'cartOrderId', 'cartPriceUSD', 'defectStatus',
+          'defectResolutionNote', 'defectFixedInVersion', 'moderationStatus',
+          'payoutStatus', 'visibility', 'videoUrl', 'transcriptText',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == feedbackId && isValidId(data.id)
+        && data.uid is string && isValidId(data.uid)
+        && data.authorName is string && data.authorName.size() >= 1 && data.authorName.size() <= 100
+        && (!('authorAvatar' in data) || (data.authorAvatar is string && data.authorAvatar.size() <= 500))
+        && (!('city' in data) || (data.city is string && data.city.size() <= 80))
+        && data.phoneId is string && data.phoneId.size() >= 1 && data.phoneId.size() <= 64
+        && data.phoneName is string && data.phoneName.size() >= 1 && data.phoneName.size() <= 120
+        && data.phoneBrand is string && data.phoneBrand.size() >= 1 && data.phoneBrand.size() <= 64
+        && data.brandKey is string && data.brandKey.size() >= 1 && data.brandKey.size() <= 64
+        && (!('brandFolder' in data) || (data.brandFolder is string && data.brandFolder.size() <= 120))
+        && data.rating is number && data.rating >= 1 && data.rating <= 5
+        && data.like is string && data.like.size() <= 1200
+        && data.dislike is string && data.dislike.size() <= 1200
+        && data.comfort is string && data.comfort.size() <= 1200
+        && data.improve is string && data.improve.size() <= 1200
+        && data.seconds is number && data.seconds >= 1 && data.seconds <= 600
+        && (!('sentimentScore' in data) || (data.sentimentScore is number && data.sentimentScore >= 0 && data.sentimentScore <= 100))
+        && (!('sentimentSummary' in data) || (data.sentimentSummary is string && data.sentimentSummary.size() <= 600))
+        && (!('sentimentTone' in data) || (data.sentimentTone is string && data.sentimentTone.size() <= 80))
+        && (!('feedbackCategory' in data) || data.feedbackCategory in ['Bug Report', 'Feature Request', 'Compliment'])
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 8 && (data.tags.size() == 0 || data.tags[0] is string)))
+        && (!('osVersion' in data) || (data.osVersion is string && data.osVersion.size() <= 120))
+        && (!('appVersion' in data) || (data.appVersion is string && data.appVersion.size() <= 80))
+        && data.rewardAmount is number && data.rewardAmount >= 0 && data.rewardAmount <= 250
+        && data.cartOrderId is string && data.cartOrderId.size() >= 1 && data.cartOrderId.size() <= 80
+        && data.cartPriceUSD is number && data.cartPriceUSD >= 0 && data.cartPriceUSD <= 10000
+        && data.defectStatus in ['open', 'investigating', 'fixing', 'resolved']
+        && (!('defectResolutionNote' in data) || (data.defectResolutionNote is string && data.defectResolutionNote.size() <= 1000))
+        && (!('defectFixedInVersion' in data) || (data.defectFixedInVersion is string && data.defectFixedInVersion.size() <= 80))
+        && data.moderationStatus in ['pending', 'approved', 'rejected']
+        && data.payoutStatus in ['pending', 'credited', 'rejected']
+        && data.visibility in ['company_portal', 'private']
+        && (!('videoUrl' in data) || (data.videoUrl is string && data.videoUrl.size() <= 500))
+        && (!('transcriptText' in data) || (data.transcriptText is string && data.transcriptText.size() <= 2500))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWithdrawal(data, withdrawalId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'userName', 'gateway', 'accountNumber',
+          'amountNPR', 'companyFeeNPR', 'netPayoutNPR', 'status',
+          'referenceId', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'userName', 'gateway', 'accountNumber',
+          'amountNPR', 'companyFeeNPR', 'netPayoutNPR', 'status',
+          'referenceId', 'rejectionReason', 'transferReference',
+          'receiptNote', 'paidByAdminId', 'paidByAdminName', 'paidAt',
+          'createdAt', 'updatedAt'
+        ])
+        && data.id is string && data.id == withdrawalId && isValidId(data.id)
+        && data.uid is string && isValidId(data.uid)
+        && data.userName is string && data.userName.size() >= 1 && data.userName.size() <= 100
+        && data.gateway is string && data.gateway.size() >= 1 && data.gateway.size() <= 80
+        && data.accountNumber is string && data.accountNumber.size() >= 3 && data.accountNumber.size() <= 120
+        && data.amountNPR is number && data.amountNPR >= 100 && data.amountNPR <= 50000
+        && data.companyFeeNPR is number && data.companyFeeNPR >= 0 && data.companyFeeNPR <= 5000
+        && data.netPayoutNPR is number && data.netPayoutNPR >= 100 && data.netPayoutNPR <= 50000
+        && data.status in ['pending', 'approved', 'rejected']
+        && data.referenceId is string && data.referenceId.size() >= 1 && data.referenceId.size() <= 120
+        && (!('rejectionReason' in data) || (data.rejectionReason is string && data.rejectionReason.size() <= 400))
+        && (!('transferReference' in data) || (data.transferReference is string && data.transferReference.size() <= 120))
+        && (!('receiptNote' in data) || (data.receiptNote is string && data.receiptNote.size() <= 400))
+        && (!('paidByAdminId' in data) || (data.paidByAdminId is string && data.paidByAdminId.size() <= 128))
+        && (!('paidByAdminName' in data) || (data.paidByAdminName is string && data.paidByAdminName.size() <= 120))
+        && (!('paidAt' in data) || data.paidAt is timestamp)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidEarningsLedgerEntry(data, entryId) {
+      return data.keys().hasAll([
+          'id', 'uid', 'entryType', 'sourceId', 'amountNPR', 'description', 'status', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'uid', 'entryType', 'sourceId', 'amountNPR', 'description', 'status', 'approvedByAdminId', 'createdAt'
+        ])
+        && data.id is string && data.id == entryId && isValidId(data.id)
+        && data.uid is string && isValidId(data.uid)
+        && data.entryType in ['feedback_reward', 'withdrawal_debit', 'withdrawal_refund']
+        && data.sourceId is string && isValidId(data.sourceId)
+        && data.amountNPR is number && data.amountNPR >= -50000 && data.amountNPR <= 50000
+        && data.description is string && data.description.size() >= 1 && data.description.size() <= 300
+        && data.status in ['credited', 'debited', 'refunded']
+        && (!('approvedByAdminId' in data) || (data.approvedByAdminId is string && data.approvedByAdminId.size() <= 128))
+        && data.createdAt is timestamp;
+    }
+
+    // 1. Public User Profiles (No PII)
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserPublic(incoming(), userId)
+        && incoming().status == 'active'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidUserPublic(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            isOwner(userId)
+            && incoming().role == existing().role
+            && incoming().status == existing().status
+            && (!('accountMode' in existing()) || ('accountMode' in incoming() && incoming().accountMode == existing().accountMode))
+            && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'nickname', 'avatar', 'city', 'accountMode', 'updatedAt'])
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(userId);
+
+      // 2. Private PII & Real Wallet Balances (Owners CANNOT increment balances; only Admin approval credits rewards)
+      match /private/{docId} {
+        allow get: if isValidId(userId) && isValidId(docId) && docId == 'info' && (isOwner(userId) || isAdmin());
+        allow list: if isOwner(userId) || isBootstrappedAdmin();
+
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(docId)
+          && docId == 'info'
+          && isOwner(userId)
+          && isValidUserPrivate(incoming(), userId)
+          && incoming().walletBalance == 0
+          && incoming().totalEarned == 0
+          && incoming().createdAt == request.time
+          && incoming().updatedAt == request.time;
+
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(docId)
+          && docId == 'info'
+          && isValidUserPrivate(incoming(), userId)
+          && incoming().uid == existing().uid
+          && incoming().createdAt == existing().createdAt
+          && incoming().updatedAt == request.time
+          && (
+            isAdmin() || (
+              isOwner(userId) && (
+                (
+                  incoming().diff(existing()).affectedKeys().hasOnly(['phone', 'preferredVoiceTone', 'gender', 'title', 'updatedAt'])
+                  && incoming().walletBalance == existing().walletBalance
+                  && incoming().totalEarned == existing().totalEarned
+                ) || (
+                  incoming().diff(existing()).affectedKeys().hasOnly(['walletBalance', 'lastWithdrawalRef', 'updatedAt'])
+                  && incoming().totalEarned == existing().totalEarned
+                  && incoming().walletBalance >= 0
+                  && incoming().walletBalance < existing().walletBalance
+                  && 'lastWithdrawalRef' in incoming()
+                  && isValidId(incoming().lastWithdrawalRef)
+                  && !exists(/databases/$(database)/documents/withdrawals/$(incoming().lastWithdrawalRef))
+                  && existsAfter(/databases/$(database)/documents/withdrawals/$(incoming().lastWithdrawalRef))
+                  && getAfter(/databases/$(database)/documents/withdrawals/$(incoming().lastWithdrawalRef)).data.uid == userId
+                  && getAfter(/databases/$(database)/documents/withdrawals/$(incoming().lastWithdrawalRef)).data.status == 'pending'
+                  && getAfter(/databases/$(database)/documents/withdrawals/$(incoming().lastWithdrawalRef)).data.amountNPR == existing().walletBalance - incoming().walletBalance
+                )
+              )
+            )
+          );
+
+        allow delete: if isAdmin() && isValidId(userId) && isValidId(docId);
+      }
+    }
+
+    // 3. Admins Directory
+    match /admins/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isBootstrappedAdmin();
+      allow create, update, delete: if isBootstrappedAdmin() && isValidId(userId);
+    }
+
+    // 4. Company Subscriptions
+    match /subscriptions/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidSubscription(incoming(), userId)
+        && incoming().status == 'active'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && existsAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef))
+        && getAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef)).data.uid == userId
+        && getAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef)).data.status in ['completed', 'verified']
+        && (isAdmin() || isOwner(userId));
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isValidSubscription(incoming(), userId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            isOwner(userId)
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'planId', 'planName', 'planType', 'billingCycle', 'priceUSD',
+              'targetCategory', 'categoryName', 'unlockedBrands', 'reviewQuota',
+              'status', 'paymentRef', 'updatedAt'
+            ])
+            && existsAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef))
+            && getAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef)).data.uid == userId
+            && getAfter(/databases/$(database)/documents/payments/$(incoming().paymentRef)).data.status in ['completed', 'verified']
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(userId);
+    }
+
+    // 5. Verified Subscription Payments (Stage 1 khalti_qr requires Admin; Stage 2 khalti_api requires pidx + txnId)
+    match /payments/{paymentId} {
+      allow get: if isValidId(paymentId) && (isOwner(existing().uid) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(paymentId)
+        && isValidPayment(incoming(), paymentId)
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() || (
+            incoming().uid == request.auth.uid
+            && incoming().method != 'khalti_qr'
+            && (
+              incoming().method != 'khalti_api' || (
+                'khaltiPidx' in incoming() && incoming().khaltiPidx.size() >= 6
+                && 'khaltiTxnId' in incoming() && incoming().khaltiTxnId.size() >= 4
+                && 'orderId' in incoming() && isValidId(incoming().orderId)
+              )
+            )
+          )
+        );
+
+      allow update, delete: if isAdmin() && isValidId(paymentId);
+    }
+
+    // 6. Khalti Payment Orders (Stage 1 Pending Manual Verification + Stage 2 Khalti API)
+    match /payment_orders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && (isOwner(existing().uid) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidPaymentOrder(incoming(), orderId)
+        && incoming().uid == request.auth.uid
+        && incoming().status in ['initiated', 'pending']
+        && !('verifiedByAdminId' in incoming())
+        && !('verifiedByAdminName' in incoming())
+        && !('verifiedAt' in incoming())
+        && !('paymentRecordId' in incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(orderId)
+        && isValidPaymentOrder(incoming(), orderId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            isOwner(existing().uid)
+            && existing().status in ['initiated', 'pending', 'mismatch_error']
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'payerAccountOrBank', 'submittedAmountNPR', 'transactionReference', 'screenshotUrl',
+              'status', 'errorReason', 'updatedAt'
+            ])
+            && incoming().purchaseOrderId == existing().purchaseOrderId
+            && incoming().amountUSD == existing().amountUSD
+            && incoming().amountNPR == existing().amountNPR
+            && incoming().amountPaisa == existing().amountPaisa
+            && incoming().brandCategory == existing().brandCategory
+            && incoming().stage == existing().stage
+            && !('verifiedByAdminId' in incoming())
+            && !('verifiedAt' in incoming())
+            && existing().stage == 'stage1_manual_qr'
+            && incoming().status in ['pending', 'cancelled']
+          )
+        );
+
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // 7. Admin-Managed App Settings (e.g. Stage 1 Khalti QR Image & Account Settings)
+    match /app_settings/{settingId} {
+      allow get: if isSignedIn() && isValidId(settingId);
+      allow list: if isAdmin();
+
+      allow create: if isAdmin()
+        && isValidId(settingId)
+        && isValidKhaltiQrSetting(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow update: if isAdmin()
+        && isValidId(settingId)
+        && isValidKhaltiQrSetting(incoming())
+        && incoming().updatedAt == request.time;
+
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    // 8. Real Customer Video Feedback Submissions (No PII)
+    match /feedback/{feedbackId} {
+      allow get: if isSignedIn() && isValidId(feedbackId) && (
+        existing().uid == request.auth.uid
+        || existing().visibility == 'company_portal'
+        || isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        existing().uid == request.auth.uid
+        || existing().visibility == 'company_portal'
+        || isBootstrappedAdmin()
+      );
+
+      allow create: if isVerifiedUser()
+        && isValidId(feedbackId)
+        && isValidFeedback(incoming(), feedbackId)
+        && incoming().uid == request.auth.uid
+        && incoming().moderationStatus == 'pending'
+        && incoming().payoutStatus == 'pending'
+        && incoming().defectStatus == 'open'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(feedbackId)
+        && isValidFeedback(incoming(), feedbackId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() || (
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'defectStatus', 'defectResolutionNote', 'defectFixedInVersion', 'updatedAt'
+            ])
+            && existing().defectStatus != 'resolved'
+            && exists(/databases/$(database)/documents/subscriptions/$(request.auth.uid))
+          ) || (
+            isOwner(existing().uid)
+            && existing().moderationStatus == 'pending'
+            && incoming().diff(existing()).affectedKeys().hasOnly([
+              'like', 'dislike', 'comfort', 'improve', 'rating', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if isAdmin() || (
+        isVerifiedUser()
+        && isValidId(feedbackId)
+        && isOwner(existing().uid)
+        && existing().moderationStatus == 'pending'
+      );
+    }
+
+    // 9. Real Money Withdrawals (Atomic balance debit on create; Admin-only settlement with transfer ref)
+    match /withdrawals/{withdrawalId} {
+      allow get: if isValidId(withdrawalId) && (isOwner(existing().uid) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(withdrawalId)
+        && isValidWithdrawal(incoming(), withdrawalId)
+        && incoming().uid == request.auth.uid
+        && incoming().status == 'pending'
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/private/info).data.lastWithdrawalRef == withdrawalId
+        && getAfter(/databases/$(database)/documents/users/$(request.auth.uid)/private/info).data.walletBalance >= 0;
+
+      allow update: if isAdmin()
+        && isValidId(withdrawalId)
+        && isValidWithdrawal(incoming(), withdrawalId)
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && existing().status == 'pending'
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'referenceId', 'transferReference', 'receiptNote',
+          'paidByAdminId', 'paidByAdminName', 'paidAt', 'rejectionReason', 'updatedAt'
+        ]);
+
+      allow delete: if isAdmin() && isValidId(withdrawalId);
+    }
+
+    // 10. Verified User Earnings Ledger (Credits by Admin only; withdrawal debits atomic with withdrawal doc)
+    match /earnings_ledger/{entryId} {
+      allow get: if isSignedIn() && isValidId(entryId) && (isOwner(existing().uid) || isAdmin());
+      allow list: if isSignedIn() && (existing().uid == request.auth.uid || isBootstrappedAdmin());
+
+      allow create: if isVerifiedUser()
+        && isValidId(entryId)
+        && isValidEarningsLedgerEntry(incoming(), entryId)
+        && incoming().createdAt == request.time
+        && (
+          isAdmin() || (
+            isOwner(incoming().uid)
+            && incoming().entryType == 'withdrawal_debit'
+            && incoming().amountNPR < 0
+            && existsAfter(/databases/$(database)/documents/withdrawals/$(incoming().sourceId))
+            && getAfter(/databases/$(database)/documents/withdrawals/$(incoming().sourceId)).data.uid == request.auth.uid
+          )
+        );
+
+      allow update, delete: if isAdmin() && isValidId(entryId);
+    }
+
+    // Connection test doc
+    match /test/{docId} {
+      allow get: if docId == 'connection';
+    }
+  }
+}

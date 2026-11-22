@@ -1,0 +1,6 @@
+{
+  "name": "Dot - 1-Min Video Reviews & AI Platform",
+  "description": "Ultra-simple 1-minute TikTok-style video product feedback recording with dynamic rewards, Nepal and global payout gateways, and enterprise AI intelligence synthesis.",
+  "requestFramePermissions": ["camera", "microphone"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
