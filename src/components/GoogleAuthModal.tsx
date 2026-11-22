@@ -3,7 +3,6 @@ import {
   X,
   ShieldCheck,
   CheckCircle2,
-  AlertCircle,
   LogOut,
   Sparkles,
   Wallet,
@@ -18,6 +17,7 @@ import {
   setPendingAuthAccountMode,
 } from '../services/firebaseService';
 import { formatFirestoreErrorMessage } from '../firebase';
+import { AuthErrorNotice } from './AuthErrorNotice';
 
 interface GoogleAuthModalProps {
   isOpen: boolean;
@@ -224,12 +224,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                 Verified Google identity protects your private wallet, payouts, and company subscription.
               </p>
             </div>
-            {authError && (
-              <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2 text-left">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
+            {authError && <AuthErrorNotice message={authError} variant="light" />}
             <button
               type="button"
               disabled={isLoading}

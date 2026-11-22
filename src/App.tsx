@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
-import { AlertCircle, Loader2, X } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 import { auth, db, formatFirestoreErrorMessage } from './firebase';
 import {
   ActiveSubscriptionDoc,
@@ -17,6 +17,7 @@ import {
   fetchAllRegisteredUsersForAdmin,
   isBootstrappedAdminUser,
   PaymentRecord,
+  setPendingAuthAccountMode,
   signOutFirebase,
   submitRealFeedbackBatch,
   subscribeCompanyFeedback,
@@ -31,6 +32,7 @@ import {
 } from './services/firebaseService';
 import { Header } from './components/Header';
 import { LoginScreen } from './components/LoginScreen';
+import { AuthErrorNotice } from './components/AuthErrorNotice';
 
 const ConsumerView = lazy(() =>
   import('./components/ConsumerView').then((m) => ({ default: m.ConsumerView }))
@@ -225,22 +227,26 @@ export default function App() {
       setAuthReady(true);
     }, 2000);
 
-    // Handle returning from mobile signInWithRedirect seamlessly
-    consumeGoogleRedirectAuth()
+    // Handle returning from mobile signInWithRedirect seamlessly without racing onAuthStateChanged
+    const redirectPromise = consumeGoogleRedirectAuth()
       .then(async (redirectRes) => {
-        if (!redirectRes) return;
+        if (!redirectRes) return null;
         const profile = await ensureUserDocsInFirestore(redirectRes.user, redirectRes.preferredMode);
+        setPendingAuthAccountMode(null);
         if (!isBootstrappedAdminUser(redirectRes.user) && profile.accountMode) {
           setView(profile.accountMode);
         } else if (redirectRes.preferredMode) {
           setView(redirectRes.preferredMode);
         }
+        return redirectRes;
       })
       .catch((err: unknown) => {
         setAuthBannerError(formatFirestoreErrorMessage(err, 'Google sign-in redirect failed. Please try again.'));
+        return null;
       });
 
     const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+      await redirectPromise;
       window.clearTimeout(authBootTimeout);
       cleanupListeners();
 
@@ -264,6 +270,7 @@ export default function App() {
       setSubLoading(true);
       try {
         const profile = await ensureUserDocsInFirestore(firebaseUser);
+        setPendingAuthAccountMode(null);
         if (profile.status === 'banned') {
           await signOutFirebase();
           setAuthBannerError('Your account has been suspended by an administrator.');
@@ -570,19 +577,18 @@ export default function App() {
       />
 
       {authBannerError && (
-        <div className="bg-rose-50 border-b border-rose-200 px-4 py-2.5 text-rose-800 text-xs font-semibold flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 max-w-7xl mx-auto">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{authBannerError}</span>
+        <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
+            <AuthErrorNotice message={authBannerError} variant="light" className="flex-1" />
+            <button
+              type="button"
+              onClick={() => setAuthBannerError(null)}
+              className="p-1.5 rounded-full hover:bg-slate-200 text-slate-600 cursor-pointer shrink-0"
+              aria-label="Dismiss alert"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={() => setAuthBannerError(null)}
-            className="p-1 rounded-full hover:bg-rose-100 text-rose-600 cursor-pointer"
-            aria-label="Dismiss alert"
-          >
-            <X className="w-4 h-4" />
-          </button>
         </div>
       )}
 

@@ -262,16 +262,17 @@ export async function consumeGoogleRedirectAuth(): Promise<{
     const result = await getRedirectResult(auth);
     if (!result || !result.user) return null;
     if (!result.user.emailVerified) {
+      setPendingAuthAccountMode(null);
       throw new Error('Google email verification is required to access dot.');
     }
     const preferredMode = pendingAuthAccountMode || readStoredPendingAuthMode() || undefined;
-    setPendingAuthAccountMode(null);
     return { user: result.user, preferredMode };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code || '';
     if (code === 'auth/no-auth-event' || code === 'auth/null-user') {
       return null;
     }
+    setPendingAuthAccountMode(null);
     throw formatGoogleAuthError(err);
   }
 }
@@ -296,7 +297,8 @@ export async function ensureUserDocsInFirestore(
     return existingPromise;
   }
 
-  const chosenMode = preferredAccountMode || pendingAuthAccountMode || undefined;
+  const chosenMode =
+    preferredAccountMode || pendingAuthAccountMode || readStoredPendingAuthMode() || undefined;
 
   const workPromise = (async (): Promise<UserProfile & { status: 'active' | 'banned' | 'suspended' }> => {
     const userRef = doc(db, 'users', uid);

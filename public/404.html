@@ -7,11 +7,14 @@
     <script>
       (function () {
         var pathSegments = window.location.pathname.split('/').filter(Boolean);
-        var target = './';
+        var suffix = (window.location.search || '') + (window.location.hash || '');
+        var target = './' + suffix;
         if (window.location.hostname.endsWith('github.io') && pathSegments.length >= 1) {
-          target = '/' + pathSegments[0] + '/';
+          target = '/' + pathSegments[0] + '/' + suffix;
         }
-        window.location.replace(target);
+        if (window.location.pathname + suffix !== target) {
+          window.location.replace(target);
+        }
       })();
     </script>
   </head>

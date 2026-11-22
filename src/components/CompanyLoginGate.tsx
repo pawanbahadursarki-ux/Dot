@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Building2, Lock, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { Building2, Lock, CheckCircle2, Loader2 } from 'lucide-react';
 import { UserProfile } from '../types';
 import {
   signInWithGooglePopup,
   ensureUserDocsInFirestore,
   setPendingAuthAccountMode,
 } from '../services/firebaseService';
+import { AuthErrorNotice } from './AuthErrorNotice';
 
 interface CompanyLoginGateProps {
   onAuthenticated: (profile: UserProfile) => void;
@@ -57,12 +58,7 @@ export const CompanyLoginGate: React.FC<CompanyLoginGateProps> = ({
           </p>
         </div>
 
-        {error && (
-          <div className="mb-4 p-3 rounded-xl bg-rose-950/80 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 shrink-0" />
-            <span>{error}</span>
-          </div>
-        )}
+        {error && <AuthErrorNotice message={error} variant="dark" className="mb-4" />}
         {success && (
           <div className="mb-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />

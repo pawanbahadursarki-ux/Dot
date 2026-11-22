@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  AlertCircle,
   CheckCircle2,
   Building2,
   Smartphone,
@@ -14,6 +13,7 @@ import {
 } from '../services/firebaseService';
 import { formatFirestoreErrorMessage } from '../firebase';
 import { DotLogo } from './DotLogo';
+import { AuthErrorNotice } from './AuthErrorNotice';
 
 interface LoginScreenProps {
   onAuthenticated: (profile: UserProfile, preferredDestination?: 'customer' | 'company') => void;
@@ -77,12 +77,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         </div>
 
         {/* Status Alerts */}
-        {errorMsg && (
-          <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium flex items-start gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-            <span>{errorMsg}</span>
-          </div>
-        )}
+        {errorMsg && <AuthErrorNotice message={errorMsg} variant="light" />}
 
         {successMsg && (
           <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-center gap-2">
