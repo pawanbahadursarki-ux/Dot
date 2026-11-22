@@ -184,7 +184,7 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
     const activeSession = sessionId ?? uploadSessionRef.current;
     setIsScanningReceipt(true);
     setScanProgress(5);
-    setScanStatusText('Initializing client-side Khalti receipt scanner...');
+    setScanStatusText('Scanning screenshot QR code & receipt text...');
     try {
       const result = await scanKhaltiReceiptScreenshot(file, {
         expectedAccountHolderName: expectedHolderName,
@@ -366,18 +366,23 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
       if (!scanResult.isKhaltiReceipt) {
         items.push({
           id: 'ocr_receipt',
-          label: 'Khalti Receipt Detection',
+          label: 'Khalti Receipt & QR Detection',
           source: 'Screenshot Scan',
           status: 'fail',
-          message: 'Uploaded image could not be verified as a readable Khalti payment receipt.',
+          message: 'Uploaded image could not be verified as a readable Khalti payment receipt or QR slip.',
         });
       } else {
+        const detectionDetail = scanResult.qrExtractedTxnId
+          ? `QR code Txn ID decoded (${scanResult.qrExtractedTxnId})${scanResult.confidence > 0 ? ` + ${scanResult.confidence}% OCR clarity` : ''}.`
+          : scanResult.qrDetected
+          ? `QR code + Khalti receipt text detected (${scanResult.confidence}% OCR clarity).`
+          : `Khalti receipt text detected (${scanResult.confidence}% OCR clarity).`;
         items.push({
           id: 'ocr_receipt',
-          label: 'Khalti Receipt Detection',
+          label: 'Khalti Receipt & QR Detection',
           source: 'Screenshot Scan',
           status: 'pass',
-          message: `Khalti receipt text detected (${scanResult.confidence}% OCR clarity).`,
+          message: detectionDetail,
         });
       }
 
@@ -992,9 +997,17 @@ export const PaymentCheckoutModal: React.FC<PaymentCheckoutModalProps> = ({
                                     Image uploaded
                                   </span>
                                 )}
+                                {!isScanningReceipt && scanResult?.qrDetected && (
+                                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 font-bold text-[10px]">
+                                    <QrCode className="w-2.5 h-2.5" />
+                                    {scanResult.qrExtractedTxnId ? 'QR Txn ID Scanned' : 'QR Code Scanned'}
+                                  </span>
+                                )}
                                 <span className="text-slate-500">
                                   {isScanningReceipt
                                     ? `${scanStatusText} (${scanProgress}%)`
+                                    : scanResult?.qrExtractedTxnId
+                                    ? `Auto-populated from QR: ${scanResult.qrExtractedTxnId}`
                                     : scanResult?.extractedTxnId
                                     ? `Auto-extracted Numeric ID: ${scanResult.extractedTxnId}`
                                     : scanStatusText || 'Scanned — review detected details below'}

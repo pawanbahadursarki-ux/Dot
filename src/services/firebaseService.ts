@@ -212,8 +212,9 @@ function formatGoogleAuthError(err: unknown): Error {
   const code = (err as { code?: string })?.code || '';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
   if (code === 'auth/unauthorized-domain') {
+    const targetHost = hostname || 'pawanbahadursarki-ux.github.io';
     return new Error(
-      `This domain (${hostname || 'current host'}) is not yet authorized in Firebase Authentication. Add "${hostname}" under Firebase Console → Authentication → Settings → Authorized domains.`
+      `This domain (${targetHost}) is not yet authorized in Firebase Authentication. Add "${targetHost}" under Firebase Console → Authentication → Settings → Authorized domains (https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/settings).`
     );
   }
   if (code === 'auth/popup-closed-by-user') {

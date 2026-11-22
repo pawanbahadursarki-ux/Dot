@@ -75,6 +75,7 @@ export default defineConfig(() => {
             (dep) =>
               !dep.includes('charts') &&
               !dep.includes('ocr-vendor') &&
+              !dep.includes('qr-vendor') &&
               !dep.includes('confetti') &&
               !dep.includes('AdminPanel') &&
               !dep.includes('CompanyView') &&
@@ -89,6 +90,7 @@ export default defineConfig(() => {
               return 'firebase-vendor';
             }
             if (id.includes('/node_modules/tesseract.js')) return 'ocr-vendor';
+            if (id.includes('/node_modules/html5-qrcode')) return 'qr-vendor';
             if (id.includes('/node_modules/lucide-react/')) return 'icons-vendor';
             return undefined;
           },
