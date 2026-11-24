@@ -12,9 +12,6 @@ interface AuthErrorNoticeProps {
   onDomainAuthorized?: () => void;
 }
 
-const FALLBACK_AUTHORIZED_APP_URL =
-  'https://ais-pre-4kbd6frpzemfj3ptlz6fsz-33571815962.asia-southeast1.run.app';
-
 export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
   message,
   variant = 'light',
@@ -81,7 +78,7 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
 
   const projectId = domainStatus?.projectId || 'gen-lang-client-0580095840';
   const firebaseAuthSettingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
-  const workingAppUrl = domainStatus?.authorizedAppUrl || FALLBACK_AUTHORIZED_APP_URL;
+  const workingAppUrl = domainStatus?.authorizedAppUrl || null;
 
   if (domainStatus?.isCurrentDomainAuthorized) {
     return (
@@ -131,9 +128,10 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
       </div>
 
       <p className={`text-[11px] leading-relaxed ${variant === 'dark' ? 'text-amber-200/90' : 'text-amber-900/90'}`}>
-        Ensure you selected project <span className="font-mono font-bold">{projectId}</span> in Firebase Console (not another project), then add{' '}
-        <span className="font-mono font-bold">{currentHost}</span> (without <code className="font-mono">https://</code> or path) under{' '}
-        <b>Authentication → Settings → Authorized domains</b>. Or launch immediately on the already-authorized app link below:
+        In Firebase Console under project <span className="font-mono font-bold">{projectId}</span>, open{' '}
+        <b>Authentication → Settings → Authorized domains</b>, click <b>Add domain</b>, and enter{' '}
+        <span className="font-mono font-bold">{currentHost}</span> (exact hostname only — do not use app names like{' '}
+        <code className="font-mono">Dot.com</code>, <code className="font-mono">https://</code>, or <code className="font-mono">/Dot</code>).
       </p>
 
       {domainStatus && domainStatus.authorizedDomains.length > 0 && (
@@ -152,16 +150,18 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
       )}
 
       <div className="flex flex-wrap items-center gap-2 pt-0.5">
-        <a
-          href={workingAppUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
-        >
-          <Rocket className="w-3.5 h-3.5" />
-          <span>Open Working Authorized App</span>
-          <ExternalLink className="w-3 h-3" />
-        </a>
+        {workingAppUrl && (
+          <a
+            href={workingAppUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white transition-colors"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Open Working Authorized App</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
 
         <button
           type="button"
