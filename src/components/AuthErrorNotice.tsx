@@ -25,6 +25,9 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
   const isUnauthorizedDomain =
     /unauthorized-domain|not yet authorized in Firebase Authentication|Authorized domains/i.test(message);
 
+  const isProviderDisabled =
+    /Email\/Password sign-in is not yet enabled|operation-not-allowed/i.test(message);
+
   const currentHost =
     (typeof window !== 'undefined' && window.location.hostname) || 'pawanbahadursarki-ux.github.io';
 
@@ -59,6 +62,39 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
     }
   };
 
+  if (isProviderDisabled) {
+    return (
+      <div
+        className={`p-3 rounded-xl text-xs space-y-2 text-left ${
+          variant === 'dark'
+            ? 'bg-amber-950/80 border border-amber-500/40 text-amber-100'
+            : 'bg-amber-50 border border-amber-200 text-amber-950'
+        } ${className}`}
+      >
+        <div className="flex items-start gap-2 font-semibold">
+          <AlertCircle
+            className={`w-4 h-4 shrink-0 mt-0.5 ${variant === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}
+          />
+          <span>Email/Password sign-in is disabled in Firebase right now.</span>
+        </div>
+        <ol className={`list-decimal pl-5 space-y-1 text-[11px] leading-relaxed ${variant === 'dark' ? 'text-amber-200/90' : 'text-amber-900'}`}>
+          <li>Click <b>Open Firebase Sign-in Providers</b> below.</li>
+          <li>Select <b>Email/Password</b>, toggle <b>Enable</b>, and click <b>Save</b>.</li>
+          <li>Or tap <b>Continue with Google</b> above for instant verified Gmail sign-in right now.</li>
+        </ol>
+        <a
+          href="https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/providers"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors"
+        >
+          <span>Open Firebase Sign-in Providers</span>
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      </div>
+    );
+  }
+
   if (!isUnauthorizedDomain) {
     return (
       <div
@@ -79,6 +115,13 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
   const projectId = domainStatus?.projectId || 'gen-lang-client-0580095840';
   const firebaseAuthSettingsUrl = `https://console.firebase.google.com/project/${projectId}/authentication/settings`;
   const workingAppUrl = domainStatus?.authorizedAppUrl || null;
+  const isGitHubPagesAuthorized = Boolean(
+    domainStatus?.authorizedDomains?.some((d) => d.trim().toLowerCase() === 'pawanbahadursarki-ux.github.io')
+  );
+  const publicGitHubPagesUrl =
+    isGitHubPagesAuthorized && currentHost.toLowerCase() !== 'pawanbahadursarki-ux.github.io'
+      ? 'https://pawanbahadursarki-ux.github.io/Dot/'
+      : null;
 
   if (domainStatus?.isCurrentDomainAuthorized) {
     return (
@@ -130,8 +173,8 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
       <p className={`text-[11px] leading-relaxed ${variant === 'dark' ? 'text-amber-200/90' : 'text-amber-900/90'}`}>
         In Firebase Console under project <span className="font-mono font-bold">{projectId}</span>, open{' '}
         <b>Authentication → Settings → Authorized domains</b>, click <b>Add domain</b>, and enter{' '}
-        <span className="font-mono font-bold">{currentHost}</span> (exact hostname only — do not use app names like{' '}
-        <code className="font-mono">Dot.com</code>, <code className="font-mono">https://</code>, or <code className="font-mono">/Dot</code>).
+        <span className="font-mono font-bold">{currentHost}</span> (exact hostname only — do not include{' '}
+        <code className="font-mono">https://</code> or a path like <code className="font-mono">/Dot</code>).
       </p>
 
       {domainStatus && domainStatus.authorizedDomains.length > 0 && (
@@ -159,6 +202,19 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
           >
             <Rocket className="w-3.5 h-3.5" />
             <span>Open Working Authorized App</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        )}
+
+        {publicGitHubPagesUrl && (
+          <a
+            href={publicGitHubPagesUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-colors"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Open Public GitHub Pages App</span>
             <ExternalLink className="w-3 h-3" />
           </a>
         )}

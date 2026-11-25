@@ -4,10 +4,9 @@
  */
 
 import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
-import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { onIdTokenChanged } from 'firebase/auth';
 import { Loader2, X } from 'lucide-react';
-import { auth, db, formatFirestoreErrorMessage } from './firebase';
+import { auth, formatFirestoreErrorMessage } from './firebase';
 import {
   ActiveSubscriptionDoc,
   BOOTSTRAPPED_ADMIN_EMAIL,
@@ -42,9 +41,6 @@ const CompanyView = lazy(() =>
 );
 const AdminPanel = lazy(() =>
   import('./components/AdminPanel').then((m) => ({ default: m.AdminPanel }))
-);
-const CompanyLoginGate = lazy(() =>
-  import('./components/CompanyLoginGate').then((m) => ({ default: m.CompanyLoginGate }))
 );
 const AdminSecurityGate = lazy(() =>
   import('./components/AdminSecurityGate').then((m) => ({ default: m.AdminSecurityGate }))
@@ -139,6 +135,7 @@ export default function App() {
   const [authReady, setAuthReady] = useState<boolean>(false);
   const [authBannerError, setAuthBannerError] = useState<string | null>(null);
   const [isAdminUnlocked, setIsAdminUnlocked] = useState<boolean>(false);
+  const [verifiedSession, setVerifiedSession] = useState<{ uid: string; isAdmin: boolean } | null>(null);
 
   const [activeSubscription, setActiveSubscription] = useState<ActiveSubscriptionDoc | null>(null);
   const [subLoading, setSubLoading] = useState<boolean>(false);
@@ -192,65 +189,51 @@ export default function App() {
     document.documentElement.style.setProperty('--fs', scaleMap[textSize] || '1');
   }, [textSize]);
 
-  // Primary Firebase Auth & Firestore Subscriptions
+  // Handle optional ?admin=1 secret entry query param cleanly
   useEffect(() => {
-    let unsubWallet: (() => void) | undefined;
-    let unsubSub: (() => void) | undefined;
-    let unsubFeedback: (() => void) | undefined;
-    let unsubMyFeedback: (() => void) | undefined;
-    let unsubWithdrawals: (() => void) | undefined;
-    let unsubPayments: (() => void) | undefined;
-    let unsubPaymentOrders: (() => void) | undefined;
-    let unsubKhaltiQr: (() => void) | undefined;
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('admin') === '1') {
+      setView('admin');
+      params.delete('admin');
+      const nextSearch = params.toString();
+      const cleanUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanUrl);
+    }
+  }, []);
 
-    const cleanupListeners = () => {
-      unsubWallet?.();
-      unsubSub?.();
-      unsubFeedback?.();
-      unsubMyFeedback?.();
-      unsubWithdrawals?.();
-      unsubPayments?.();
-      unsubPaymentOrders?.();
-      unsubKhaltiQr?.();
-      unsubWallet = undefined;
-      unsubSub = undefined;
-      unsubFeedback = undefined;
-      unsubMyFeedback = undefined;
-      unsubWithdrawals = undefined;
-      unsubPayments = undefined;
-      unsubPaymentOrders = undefined;
-      unsubKhaltiQr = undefined;
-    };
+  // Primary Firebase Auth & ID Token Listener (handles initial load, sign-in, sign-out, and emailVerified token refresh)
+  useEffect(() => {
+    let active = true;
 
     // Never let slow/restricted mobile networks stall forever on the initial loading screen
     const authBootTimeout = window.setTimeout(() => {
-      setAuthReady(true);
+      if (active) setAuthReady(true);
     }, 2000);
 
-    // Handle returning from mobile signInWithRedirect seamlessly without racing onAuthStateChanged
+    // Handle returning from mobile signInWithRedirect seamlessly without racing auth listener
     const redirectPromise = consumeGoogleRedirectAuth()
       .then(async (redirectRes) => {
-        if (!redirectRes) return null;
-        const profile = await ensureUserDocsInFirestore(redirectRes.user, redirectRes.preferredMode);
+        if (!redirectRes || !active) return null;
+        await ensureUserDocsInFirestore(redirectRes.user, redirectRes.preferredMode || 'company');
         setPendingAuthAccountMode(null);
-        if (!isBootstrappedAdminUser(redirectRes.user) && profile.accountMode) {
-          setView(profile.accountMode);
-        } else if (redirectRes.preferredMode) {
-          setView(redirectRes.preferredMode);
-        }
+        setView(redirectRes.preferredMode || 'company');
         return redirectRes;
       })
       .catch((err: unknown) => {
-        setAuthBannerError(formatFirestoreErrorMessage(err, 'Google sign-in redirect failed. Please try again.'));
+        if (active) {
+          setAuthBannerError(formatFirestoreErrorMessage(err, 'Google sign-in redirect failed. Please try again.'));
+        }
         return null;
       });
 
-    const unsubAuth = onAuthStateChanged(auth, async (firebaseUser) => {
+    const unsubAuth = onIdTokenChanged(auth, async (firebaseUser) => {
       await redirectPromise;
+      if (!active) return;
       window.clearTimeout(authBootTimeout);
-      cleanupListeners();
 
       if (!firebaseUser) {
+        setVerifiedSession(null);
         setUser(EMPTY_USER);
         setActiveSubscription(null);
         setFeedbackList([]);
@@ -267,12 +250,25 @@ export default function App() {
         return;
       }
 
-      setSubLoading(true);
+      // Hold off Firestore reads/writes and portal entry until Gmail verification completes
+      if (!firebaseUser.emailVerified) {
+        setVerifiedSession(null);
+        setUser(EMPTY_USER);
+        setActiveSubscription(null);
+        setIsAdminUnlocked(false);
+        setSubLoading(false);
+        setAuthReady(true);
+        return;
+      }
+
       try {
         const profile = await ensureUserDocsInFirestore(firebaseUser);
+        if (!active) return;
         setPendingAuthAccountMode(null);
+
         if (profile.status === 'banned') {
           await signOutFirebase();
+          setVerifiedSession(null);
           setAuthBannerError('Your account has been suspended by an administrator.');
           setView('login');
           setSubLoading(false);
@@ -286,109 +282,119 @@ export default function App() {
           ...profile,
           isLoggedIn: true,
         });
+        setVerifiedSession((prev) =>
+          prev && prev.uid === firebaseUser.uid && prev.isAdmin === isAdmin
+            ? prev
+            : { uid: firebaseUser.uid, isAdmin }
+        );
 
-        // Enforce 1 Google Account = 1 Portal Access immediately upon session restore
-        if (!isAdmin && profile.accountMode) {
-          const lockedTarget = profile.accountMode;
-          setView((prev) => (prev === 'login' || prev !== lockedTarget ? lockedTarget : prev));
-        }
-
-        unsubWallet = subscribeUserPrivateWallet(firebaseUser.uid, (patch) => {
-          setUser((prev) => ({
-            ...prev,
-            ...patch,
-          }));
-        });
-
-        unsubSub = subscribeUserSubscription(firebaseUser.uid, (sub) => {
-          setActiveSubscription(sub);
-          setSubLoading(false);
-          const rawSingleBrand =
-            sub && sub.status === 'active'
-              ? (sub.targetCategory && sub.targetCategory.toLowerCase() !== 'all'
-                  ? sub.targetCategory
-                  : (sub.unlockedBrands || []).find((b) => b && b.toLowerCase() !== 'all')) || ''
-              : '';
-          setUser((prev) => ({
-            ...prev,
-            unlockedBrandFolders: rawSingleBrand ? [normalizeBrandFolder(rawSingleBrand)] : [],
-            subscriptionBillingCycle: sub?.billingCycle,
-          }));
-        });
-
-        unsubFeedback = subscribeCompanyFeedback(isAdmin, (items) => {
-          setFeedbackList(items);
-        });
-
-        unsubMyFeedback = subscribeMyFeedback(firebaseUser.uid, (items) => {
-          setMyFeedbackList(items);
-        });
-
-        unsubWithdrawals = subscribeWithdrawals(firebaseUser.uid, isAdmin, (adminList, txList) => {
-          setAdminWithdrawals(adminList);
-          setTransactions(txList);
-        });
-
-        unsubPayments = subscribePayments(firebaseUser.uid, isAdmin, (items) => {
-          setPayments(items);
-        });
-
-        unsubPaymentOrders = subscribePaymentOrders(firebaseUser.uid, isAdmin, (orders) => {
-          setPaymentOrders(orders);
-        });
-
-        unsubKhaltiQr = subscribeKhaltiQrSettings((settings) => {
-          setKhaltiQrSettings(settings);
-        });
-
-        if (isAdmin) {
-          fetchAllRegisteredUsersForAdmin()
-            .then((list) => setRegisteredUsers(list))
-            .catch(() => {});
-        }
+        // Land directly on dashboard after sign-in or session restore from login screen
+        setView((prev) => (prev === 'login' ? 'company' : prev));
       } catch (err: unknown) {
-        setAuthBannerError(formatFirestoreErrorMessage(err, 'Unable to sync your profile with Cloud Firestore.'));
-        setSubLoading(false);
+        if (active) {
+          setAuthBannerError(formatFirestoreErrorMessage(err, 'Unable to sync your profile with Cloud Firestore.'));
+          setSubLoading(false);
+        }
       } finally {
-        setAuthReady(true);
+        if (active) setAuthReady(true);
       }
     });
 
     return () => {
+      active = false;
       window.clearTimeout(authBootTimeout);
-      cleanupListeners();
       unsubAuth();
     };
   }, []);
 
-  // Automatically show SubscriptionModal whenever a signed-in user enters Company Dashboard without an active plan
+  // Attach live Cloud Firestore subscriptions whenever a verified session becomes active
   useEffect(() => {
-    if (view === 'company' && user.isLoggedIn && !subLoading && !hasActiveSubscription) {
-      setIsSubscriptionOpen(true);
+    if (!verifiedSession?.uid) {
+      return;
     }
-  }, [view, user.isLoggedIn, subLoading, hasActiveSubscription]);
 
-  const handleNavigate = (target: { view: 'customer' | 'company' | 'login' | 'admin' | 'dual'; screen?: string }) => {
-    const isAdmin = isBootstrappedAdminUser(auth.currentUser);
-    if (user.isLoggedIn && !isAdmin && user.accountMode) {
-      if (target.view !== user.accountMode && target.view !== 'login') {
-        const currentLabel = user.accountMode === 'company' ? 'Company Portal' : 'Customer App';
-        const attemptedLabel =
-          target.view === 'company'
-            ? 'Company Portal'
-            : target.view === 'admin'
-            ? 'Admin Panel'
-            : 'Customer App';
-        setAuthBannerError(
-          `1 Google Account = 1 Access: ${user.email} is locked to ${currentLabel}. Sign out to use a separate Gmail for ${attemptedLabel}.`
-        );
-        setView(user.accountMode);
-        return;
-      }
-      if (target.view === 'login') {
-        setView(user.accountMode);
-        return;
-      }
+    const { uid, isAdmin } = verifiedSession;
+    setSubLoading(true);
+
+    const unsubWallet = subscribeUserPrivateWallet(uid, (patch) => {
+      setUser((prev) => ({
+        ...prev,
+        ...patch,
+      }));
+    });
+
+    const unsubSub = subscribeUserSubscription(uid, (sub) => {
+      setActiveSubscription(sub);
+      setSubLoading(false);
+      const rawSingleBrand =
+        sub && sub.status === 'active'
+          ? (sub.targetCategory && sub.targetCategory.toLowerCase() !== 'all'
+              ? sub.targetCategory
+              : (sub.unlockedBrands || []).find((b) => b && b.toLowerCase() !== 'all')) || ''
+          : '';
+      setUser((prev) => ({
+        ...prev,
+        unlockedBrandFolders: rawSingleBrand ? [normalizeBrandFolder(rawSingleBrand)] : [],
+        subscriptionBillingCycle: sub?.billingCycle,
+      }));
+    });
+
+    const unsubFeedback = subscribeCompanyFeedback(isAdmin, (items) => {
+      setFeedbackList(items);
+    });
+
+    const unsubMyFeedback = subscribeMyFeedback(uid, (items) => {
+      setMyFeedbackList(items);
+    });
+
+    const unsubWithdrawals = subscribeWithdrawals(uid, isAdmin, (adminList, txList) => {
+      setAdminWithdrawals(adminList);
+      setTransactions(txList);
+    });
+
+    const unsubPayments = subscribePayments(uid, isAdmin, (items) => {
+      setPayments(items);
+    });
+
+    const unsubPaymentOrders = subscribePaymentOrders(uid, isAdmin, (orders) => {
+      setPaymentOrders(orders);
+    });
+
+    const unsubKhaltiQr = subscribeKhaltiQrSettings((settings) => {
+      setKhaltiQrSettings(settings);
+    });
+
+    if (isAdmin) {
+      fetchAllRegisteredUsersForAdmin()
+        .then((list) => setRegisteredUsers(list))
+        .catch(() => {});
+    }
+
+    return () => {
+      unsubWallet();
+      unsubSub();
+      unsubFeedback();
+      unsubMyFeedback();
+      unsubWithdrawals();
+      unsubPayments();
+      unsubPaymentOrders();
+      unsubKhaltiQr();
+    };
+  }, [verifiedSession]);
+
+  const handleNavigate = (target: {
+    view: 'customer' | 'company' | 'login' | 'admin' | 'dual';
+    screen?: string;
+    allowAdminEntry?: boolean;
+  }) => {
+    setAuthBannerError(null);
+    if (user.isLoggedIn && target.view === 'login') {
+      setView('company');
+      return;
+    }
+
+    if (target.view === 'admin' && !isAdminUnlocked && !isBootstrappedAdminUser(auth.currentUser) && !target.allowAdminEntry) {
+      return;
     }
 
     if (target.view) {
@@ -418,22 +424,11 @@ export default function App() {
 
   const handleAuthenticated = async (
     profile: UserProfile,
-    preferredDestination: 'customer' | 'company' = 'customer'
+    preferredDestination: 'customer' | 'company' = 'company'
   ) => {
-    const isAdmin = Boolean(auth.currentUser && isBootstrappedAdminUser(auth.currentUser));
-    const effectiveDestination: 'customer' | 'company' = isAdmin
-      ? preferredDestination
-      : profile.accountMode || preferredDestination;
-
-    if (!isAdmin && profile.accountMode && profile.accountMode !== preferredDestination) {
-      const boundLabel = profile.accountMode === 'company' ? 'Company Portal' : 'Customer App';
-      const requestedLabel = preferredDestination === 'company' ? 'Company Portal' : 'Customer App';
-      setAuthBannerError(
-        `1 Google Account = 1 Access: ${profile.email} is locked to ${boundLabel} and cannot enter ${requestedLabel}. Sign out to use a different Gmail.`
-      );
-    } else {
-      setAuthBannerError(null);
-    }
+    const firebaseUser = auth.currentUser;
+    const isAdmin = Boolean(firebaseUser && isBootstrappedAdminUser(firebaseUser));
+    setAuthBannerError(null);
 
     setUser((prev) => ({
       ...prev,
@@ -441,33 +436,20 @@ export default function App() {
       isLoggedIn: true,
     }));
 
+    if (firebaseUser && firebaseUser.emailVerified) {
+      setVerifiedSession((prev) =>
+        prev && prev.uid === firebaseUser.uid && prev.isAdmin === isAdmin
+          ? prev
+          : { uid: firebaseUser.uid, isAdmin }
+      );
+    }
+
     if (isAdmin) {
       setIsAdminUnlocked(true);
       refreshAdminUsers();
     }
 
-    if (effectiveDestination === 'company') {
-      const uid = auth.currentUser?.uid || profile.googleId;
-      if (uid) {
-        try {
-          const subSnap = await getDoc(doc(db, 'subscriptions', uid));
-          const subActive = subSnap.exists() && subSnap.data()?.status === 'active';
-          if (!subActive) {
-            setView('company');
-            setIsSubscriptionOpen(true);
-            return;
-          }
-        } catch {
-          setView('company');
-          setIsSubscriptionOpen(true);
-          return;
-        }
-      }
-      setView('company');
-      return;
-    }
-
-    setView('customer');
+    setView(preferredDestination);
   };
 
   const handleLogout = async () => {
@@ -476,6 +458,7 @@ export default function App() {
     } catch {
       // Ignore sign-out errors and reset UI
     }
+    setVerifiedSession(null);
     setUser(EMPTY_USER);
     setActiveSubscription(null);
     setIsAdminUnlocked(false);
@@ -493,12 +476,6 @@ export default function App() {
       user,
       feedback: newReview,
     });
-
-    // Keep customer-locked accounts isolated to Consumer App; only company/admin accounts open Subscription Modal
-    if (!hasActiveSubscription && (isBootstrappedAdminUser(auth.currentUser) || user.accountMode === 'company')) {
-      setView('company');
-      setIsSubscriptionOpen(true);
-    }
 
     return saved;
   };
@@ -595,10 +572,50 @@ export default function App() {
       <main className="flex-1 flex flex-col min-h-0">
         {!authReady ? (
           <ViewLoadingFallback label="Starting Dot..." />
-        ) : view === 'login' ? (
+        ) : view === 'admin' ? (
+          <Suspense fallback={<ViewLoadingFallback />}>
+            {!isAdminUnlocked || !isBootstrappedAdminUser(auth.currentUser) ? (
+              <AdminSecurityGate
+                currentUser={user}
+                onUnlockSuccess={(adminProfile) => {
+                  const fbUser = auth.currentUser;
+                  if (adminProfile) {
+                    setUser((prev) => ({ ...prev, ...adminProfile, isLoggedIn: true }));
+                  }
+                  if (isBootstrappedAdminUser(fbUser) || adminProfile?.email?.toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL) {
+                    setIsAdminUnlocked(true);
+                    if (fbUser?.uid) {
+                      setVerifiedSession({ uid: fbUser.uid, isAdmin: true });
+                    }
+                    refreshAdminUsers();
+                  }
+                }}
+                onCancel={() => handleNavigate({ view: user.isLoggedIn ? 'company' : 'login' })}
+              />
+            ) : (
+              <AdminPanel
+                currentUser={user}
+                feedbackList={feedbackList}
+                transactions={transactions}
+                adminWithdrawals={adminWithdrawals}
+                payments={payments}
+                paymentOrders={paymentOrders}
+                khaltiQrSettings={khaltiQrSettings}
+                registeredUsers={registeredUsers}
+                onRefreshUsers={refreshAdminUsers}
+                onOpenVideoModal={openVideoModal}
+                onUpdateFeedbackItem={handleUpdateFeedback}
+                onSwitchToView={(target) => handleNavigate({ view: target })}
+                onLockAdminSession={() => setIsAdminUnlocked(false)}
+              />
+            )}
+          </Suspense>
+        ) : !user.isLoggedIn || view === 'login' ? (
           <LoginScreen
             onAuthenticated={handleAuthenticated}
-            onSwitchView={(target) => handleNavigate({ view: target })}
+            onSwitchView={(target) =>
+              handleNavigate({ view: target, allowAdminEntry: target === 'admin' })
+            }
           />
         ) : (
           <Suspense fallback={<ViewLoadingFallback />}>
@@ -627,45 +644,11 @@ export default function App() {
                 }}
                 currentScreen={consumerScreen}
                 onNavigateScreen={setConsumerScreen}
-                onNavigateView={(target) => handleNavigate({ view: target })}
+                onNavigateView={(target) =>
+                  handleNavigate({ view: target, allowAdminEntry: target === 'admin' })
+                }
                 onToggleLarge={() => setDeviceFrameMode(!deviceFrameMode)}
-              />
-            ) : view === 'admin' ? (
-              !isAdminUnlocked || !isBootstrappedAdminUser(auth.currentUser) ? (
-                <AdminSecurityGate
-                  currentUser={user}
-                  onUnlockSuccess={(adminProfile) => {
-                    if (adminProfile) {
-                      setUser((prev) => ({ ...prev, ...adminProfile, isLoggedIn: true }));
-                    }
-                    if (isBootstrappedAdminUser(auth.currentUser) || adminProfile?.email?.toLowerCase() === BOOTSTRAPPED_ADMIN_EMAIL) {
-                      setIsAdminUnlocked(true);
-                      refreshAdminUsers();
-                    }
-                  }}
-                  onCancel={() => handleNavigate({ view: user.accountMode || 'company' })}
-                />
-              ) : (
-                <AdminPanel
-                  currentUser={user}
-                  feedbackList={feedbackList}
-                  transactions={transactions}
-                  adminWithdrawals={adminWithdrawals}
-                  payments={payments}
-                  paymentOrders={paymentOrders}
-                  khaltiQrSettings={khaltiQrSettings}
-                  registeredUsers={registeredUsers}
-                  onRefreshUsers={refreshAdminUsers}
-                  onOpenVideoModal={openVideoModal}
-                  onUpdateFeedbackItem={handleUpdateFeedback}
-                  onSwitchToView={(target) => handleNavigate({ view: target })}
-                  onLockAdminSession={() => setIsAdminUnlocked(false)}
-                />
-              )
-            ) : !user.isLoggedIn ? (
-              <CompanyLoginGate
-                onAuthenticated={(profile) => handleAuthenticated(profile, 'company')}
-                onSwitchToCustomer={() => handleNavigate({ view: 'customer' })}
+                isAdminUnlocked={isAdminUnlocked}
               />
             ) : (
               <CompanyView
@@ -688,11 +671,7 @@ export default function App() {
                 onUpdateUser={handleUpdateUser}
                 onFeedbackUpdated={handleUpdateFeedback}
                 onAddFeedback={handleAddReview}
-                onNavigateHome={
-                  isAdminUnlocked || user.accountMode !== 'company'
-                    ? () => handleNavigate({ view: 'customer' })
-                    : undefined
-                }
+                onNavigateHome={() => handleNavigate({ view: 'customer' })}
                 onNavigateView={(target) => handleNavigate({ view: target })}
                 onLogout={handleLogout}
               />
@@ -758,6 +737,7 @@ export default function App() {
             onOpenChatGPTWithSummary={handleOpenChatGPTFromVideo}
             user={user}
             activePlan={activePlan}
+            isCompanyContext={view === 'company'}
             onOpenSubscriptionModal={(brand) => {
               setTargetBrandForSubscription(brand);
               setIsSubscriptionOpen(true);

@@ -130,13 +130,12 @@ export const CompanyBoardAnalytics: React.FC<CompanyBoardAnalyticsProps> = ({
   };
 
   return (
-    <div className="w-full bg-[#f8fafc] text-slate-900 rounded-3xl border border-slate-200/90 shadow-sm overflow-hidden p-4 sm:p-6 space-y-5">
-      
+    <div className="w-full space-y-3.5 text-slate-900">
       {/* Toast Notification Banner */}
       {toastMessage && (
-        <div className="p-3 bg-slate-900 text-white rounded-2xl border border-emerald-500/40 shadow-lg flex items-center justify-between animate-in slide-in-from-top duration-300">
+        <div className="p-3 bg-slate-900 text-white rounded-xl border border-emerald-500/40 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-bold text-emerald-400">
-            <Sparkles className="w-4 h-4 text-emerald-400 animate-spin" />
+            <Sparkles className="w-4 h-4 text-emerald-400" />
             <span>{toastMessage}</span>
           </div>
           <button
@@ -149,131 +148,73 @@ export const CompanyBoardAnalytics: React.FC<CompanyBoardAnalyticsProps> = ({
         </div>
       )}
 
-      {/* ====================================================================
-          DASHBOARD HEADER: MATCHING images.jpeg EXACTLY
-          "Dashboard - Last 30 days" | Search | Dark toggle | Profile JD
-          PLUS: 1-Click "⚡ + Simulate New Feedback" to test automatic cart/chart conversion!
-          ==================================================================== */}
-      <div className="flex items-center justify-between gap-3 flex-wrap pb-3 border-b border-slate-100">
-        
-        {/* Left: Title & Timeframe Selector */}
-        <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap">
-          <h3 className="text-lg sm:text-xl font-black text-slate-900 tracking-tight">
-            Dashboard
-          </h3>
-          <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-xs font-semibold text-slate-600">
-            <span>Last 30 days</span>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-          </div>
-          <span className="hidden md:inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200/60">
-            {currentBrandName} Analytics
-          </span>
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Live Feedback → Cart Sync Active
-          </span>
-        </div>
-
-        {/* Right: Search & Real Profile Initial */}
-        <div className="flex items-center gap-2">
-          <div className="relative hidden md:block">
-            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Filter orders & versions..."
-              className="pl-8 pr-3 py-1 bg-white border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-36 lg:w-44"
-            />
-          </div>
-
-          <div className="flex items-center gap-1 pl-1">
-            {user?.avatar ? (
-              <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover border border-purple-200 shadow-2xs" />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-[#f0edff] text-[#5542f6] font-black text-xs flex items-center justify-center border border-purple-200 shadow-2xs">
-                {(user?.name || 'C').charAt(0).toUpperCase()}
-              </div>
-            )}
-          </div>
-        </div>
-
-      </div>
-
-      {/* ====================================================================
-          ROW 1: 4 WHITE KPI METRIC CARDS MATCHING images.jpeg
-          (Dynamically updated from feedback list: Total Revenue, New Users, Orders, Conversion)
-          ==================================================================== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+      {/* ROW 1: 4 COMPACT KPI METRIC CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         
         {/* 1. Total Revenue Card */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:shadow-xs transition-shadow">
-          <div className="space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">Total Revenue</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
+        <div className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between">
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-[11px] font-medium text-slate-500 block">Total Revenue</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono tabular-nums truncate">
               {metrics.totalRevenue}
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
-              <ArrowUpRight className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 font-mono tabular-nums">
+              <ArrowUpRight className="w-3 h-3 shrink-0" />
               <span>{metrics.revenueGrowth}</span>
-              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">vs last month</span>
             </div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#f0edff] text-[#5542f6] font-black text-base flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-9 h-9 rounded-lg bg-[#f0edff] text-[#5542f6] font-black text-sm flex items-center justify-center shrink-0">
             $
           </div>
         </div>
 
         {/* 2. New Users Card */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:shadow-xs transition-shadow">
-          <div className="space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">New Users</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
+        <div className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between">
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-[11px] font-medium text-slate-500 block">New Users</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono tabular-nums truncate">
               {metrics.newUsers}
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
-              <ArrowUpRight className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 font-mono tabular-nums">
+              <ArrowUpRight className="w-3 h-3 shrink-0" />
               <span>{metrics.userGrowth}</span>
-              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">active reviewers</span>
             </div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#e6fbf2] text-[#10b981] flex items-center justify-center shrink-0 shadow-2xs">
-            <Users className="w-5 h-5 text-[#10b981]" />
+          <div className="w-9 h-9 rounded-lg bg-[#e6fbf2] text-[#10b981] flex items-center justify-center shrink-0">
+            <Users className="w-4 h-4 text-[#10b981]" />
           </div>
         </div>
 
-        {/* 3. Orders Card (Dynamically converted from feedback cart items) */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:shadow-xs transition-shadow">
-          <div className="space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">Orders</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
+        {/* 3. Orders Card */}
+        <div className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between">
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-[11px] font-medium text-slate-500 block">Orders</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono tabular-nums truncate">
               {metrics.orders}
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
-              <ArrowUpRight className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 font-mono tabular-nums">
+              <ArrowUpRight className="w-3 h-3 shrink-0" />
               <span>{metrics.ordersGrowth}</span>
-              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">cart orders</span>
             </div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#fff7ec] text-[#f59e0b] flex items-center justify-center shrink-0 shadow-2xs">
-            <ShoppingBag className="w-5 h-5 text-[#f59e0b]" />
+          <div className="w-9 h-9 rounded-lg bg-[#fff7ec] text-[#f59e0b] flex items-center justify-center shrink-0">
+            <ShoppingBag className="w-4 h-4 text-[#f59e0b]" />
           </div>
         </div>
 
         {/* 4. Conversion Card */}
-        <div className="bg-white rounded-2xl p-4 border border-slate-200 shadow-2xs flex items-center justify-between hover:shadow-xs transition-shadow">
-          <div className="space-y-1">
-            <span className="text-xs font-medium text-slate-500 block">Conversion</span>
-            <div className="text-2xl font-black text-slate-900 tracking-tight">
+        <div className="bg-white rounded-xl p-3.5 border border-slate-200 flex items-center justify-between">
+          <div className="space-y-0.5 min-w-0">
+            <span className="text-[11px] font-medium text-slate-500 block">Conversion</span>
+            <div className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight font-mono tabular-nums truncate">
               {metrics.conversion}
             </div>
-            <div className="flex items-center gap-1 text-xs font-bold text-emerald-600">
-              <ArrowUpRight className="w-3.5 h-3.5" />
+            <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-600 font-mono tabular-nums">
+              <ArrowUpRight className="w-3 h-3 shrink-0" />
               <span>{metrics.conversionGrowth}</span>
-              <span className="text-[10px] text-slate-400 font-normal hidden xl:inline">video to cart</span>
             </div>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#fdf2f4] text-[#ec4899] font-black text-base flex items-center justify-center shrink-0 shadow-2xs">
+          <div className="w-9 h-9 rounded-lg bg-[#fdf2f4] text-[#ec4899] font-black text-sm flex items-center justify-center shrink-0">
             %
           </div>
         </div>
@@ -611,208 +552,145 @@ export const CompanyBoardAnalytics: React.FC<CompanyBoardAnalyticsProps> = ({
       </div>
 
       {/* ====================================================================
-          ROW 4: ALL FEEDBACK CONVERTED INTO CART ORDERS WITH USER VERSION & FIX THEIR ERROR
-          "Now convert the feedback data into cart all of this"
-          "and also show version which get come from users fix their error and complicated the task"
+          CLEAN FEEDBACK & ORDERS LIST (User, Device, Issue, Status, Action)
           ==================================================================== */}
-      <div className="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-2xs space-y-3.5">
-        
-        {/* Table Header & Filters */}
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <div className="flex items-center gap-2">
-              <h4 className="font-extrabold text-sm sm:text-base text-slate-900 tracking-tight">
-                All Feedback Converted Into Cart Orders ({filteredOrders.length})
-              </h4>
-              <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                Auto-Synced with Reviews
-              </span>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+          <h4 className="font-bold text-sm text-slate-900">
+            Feedback &amp; Orders ({filteredOrders.length})
+          </h4>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search user, device, issue..."
+                className="pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-44 sm:w-52"
+              />
             </div>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Each user feedback is converted into an audited cart order with their client OS version and reported defects.
-            </p>
-          </div>
 
-          {/* Quick Filters */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              type="button"
-              onClick={() => setOrderStatusFilter('all')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                orderStatusFilter === 'all'
-                  ? 'bg-slate-900 text-white'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              All Cart Orders ({metrics.recentOrders.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderStatusFilter('errors')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                orderStatusFilter === 'errors'
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200'
-              }`}
-            >
-              <AlertCircle className="w-3 h-3" />
-              <span>Needs Fix ({metrics.recentOrders.filter(o => o.defectStatus !== 'resolved').length})</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setOrderStatusFilter('fixed')}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
-                orderStatusFilter === 'fixed'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200'
-              }`}
-            >
-              <CheckCircle2 className="w-3 h-3" />
-              <span>Fixed Errors ({metrics.recentOrders.filter(o => o.defectStatus === 'resolved').length})</span>
-            </button>
+            <div className="inline-flex p-0.5 rounded-lg bg-slate-100 border border-slate-200 gap-0.5">
+              <button
+                type="button"
+                onClick={() => setOrderStatusFilter('all')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer tabular-nums ${
+                  orderStatusFilter === 'all'
+                    ? 'bg-white text-slate-900 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                All ({metrics.recentOrders.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderStatusFilter('errors')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer tabular-nums ${
+                  orderStatusFilter === 'errors'
+                    ? 'bg-white text-amber-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Needs Fix ({metrics.recentOrders.filter(o => o.defectStatus !== 'resolved').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setOrderStatusFilter('fixed')}
+                className={`px-2.5 py-1 rounded-md text-xs font-semibold transition-all cursor-pointer tabular-nums ${
+                  orderStatusFilter === 'fixed'
+                    ? 'bg-white text-emerald-700 shadow-2xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Fixed ({metrics.recentOrders.filter(o => o.defectStatus === 'resolved').length})
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Dynamic Orders Table with User Version & "Fix Their Error" Button */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-slate-400 text-[11px] uppercase tracking-wider font-semibold">
-                <th className="pb-2.5">Customer & Cart ID</th>
-                <th className="pb-2.5">Phone Product</th>
-                <th className="pb-2.5">User OS & App Version</th>
-                <th className="pb-2.5">Reported Error / Defect</th>
-                <th className="pb-2.5">Amount</th>
-                <th className="pb-2.5">Status</th>
-                <th className="pb-2.5 text-right">Fix Error & Cart</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {filteredOrders.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="py-8 text-center text-slate-400">
-                    No customer cart orders recorded yet. Verified customer reviews automatically populate here.
-                  </td>
-                </tr>
-              ) : (
-                filteredOrders.map((ord) => (
-                  <tr key={ord.id} className="hover:bg-slate-50/80 transition-colors">
-                    
-                    {/* 1. Customer & Cart Order ID */}
-                    <td className="py-2.5">
-                      <div className="flex items-center gap-2">
-                        <img
-                          src={ord.avatar}
-                          alt={ord.customer}
-                          className="w-7 h-7 rounded-full object-cover border border-slate-200 shrink-0"
-                        />
-                        <div>
-                          <div className="font-extrabold text-slate-900 text-xs flex items-center gap-1">
-                            <span>{ord.customer}</span>
-                            <span className="text-[10px] text-slate-400 font-normal">({ord.city})</span>
-                          </div>
-                          <div className="text-[10px] text-indigo-600 font-mono font-semibold">
-                            {ord.orderId} · {ord.date}
-                          </div>
-                        </div>
+        {filteredOrders.length === 0 ? (
+          <div className="py-8 px-4 text-center text-xs text-slate-400">
+            No customer feedback or orders match this filter yet.
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredOrders.map((ord) => {
+              const isResolved = ord.defectStatus === 'resolved';
+              return (
+                <div
+                  key={ord.id}
+                  className="px-4 py-2.5 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                >
+                  {/* User / Company & Device */}
+                  <div className="flex items-center gap-3 min-w-0 sm:w-[30%]">
+                    <img
+                      src={ord.avatar}
+                      alt={ord.customer}
+                      className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="font-bold text-slate-900 text-xs truncate">
+                        {ord.customer}{' '}
+                        <span className="font-normal text-slate-400">· {ord.city}</span>
                       </div>
-                    </td>
-
-                    {/* 2. Product Name */}
-                    <td className="py-2.5 font-bold text-slate-800">
-                      <div className="max-w-[150px] truncate" title={ord.product}>
-                        {ord.product}
+                      <div className="text-[11px] font-medium text-indigo-700 truncate">
+                        {ord.product} <span className="text-slate-400">· {ord.amount}</span>
                       </div>
-                    </td>
+                    </div>
+                  </div>
 
-                    {/* 3. User Version: OS Version & App Version that came from users */}
-                    <td className="py-2.5">
-                      <div className="space-y-0.5">
-                        <div className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-purple-50 text-purple-700 border border-purple-200 font-mono text-[10px] font-bold">
-                          <Cpu className="w-2.5 h-2.5" />
-                          <span>{ord.osVersion}</span>
-                        </div>
-                        <div className="text-[10px] text-slate-500 font-mono block pl-0.5">
-                          App {ord.appVersion}
-                        </div>
-                      </div>
-                    </td>
+                  {/* Issue / Reported Feedback */}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-slate-700 truncate" title={ord.reportedError}>
+                      {ord.reportedError}
+                    </p>
+                    <div className="text-[11px] text-slate-400 font-mono truncate mt-0.5">
+                      {ord.osVersion} · {ord.appVersion}
+                      {ord.defectFixedInVersion ? ` · Patched ${ord.defectFixedInVersion}` : ''}
+                    </div>
+                  </div>
 
-                    {/* 4. Reported Error / Defect */}
-                    <td className="py-2.5 max-w-[200px]">
-                      <div className="text-[11px] text-slate-700 line-clamp-1" title={ord.reportedError}>
-                        {ord.reportedError}
-                      </div>
-                      {ord.defectFixedInVersion && (
-                        <div className="text-[9px] font-mono text-emerald-600 font-bold flex items-center gap-0.5 mt-0.5">
-                          <Check className="w-2.5 h-2.5" /> Patched in {ord.defectFixedInVersion}
-                        </div>
-                      )}
-                    </td>
+                  {/* Status Badge & Single Primary Action */}
+                  <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                    <span
+                      className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                        isResolved
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-amber-50 text-amber-800 border-amber-200'
+                      }`}
+                    >
+                      {isResolved ? 'Fixed' : 'Open Issue'}
+                    </span>
 
-                    {/* 5. Amount */}
-                    <td className="py-2.5 font-mono font-bold text-slate-900 whitespace-nowrap">
-                      {ord.amount}
-                    </td>
-
-                    {/* 6. Status Badge */}
-                    <td className="py-2.5 whitespace-nowrap">
-                      <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border ${ord.statusColor}`}>
-                        {ord.status}
-                      </span>
-                    </td>
-
-                    {/* 7. Action: "Fix Their Error" + Open Cart */}
-                    <td className="py-2.5 text-right whitespace-nowrap">
-                      <div className="flex items-center justify-end gap-1.5">
-                        
-                        {/* FIX THEIR ERROR BUTTON */}
-                        <button
-                          type="button"
-                          onClick={() => handleOpenFixModal(ord)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-2xs ${
-                            ord.defectStatus === 'resolved'
-                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-300'
-                              : 'bg-amber-500 hover:bg-amber-600 text-slate-950 font-black border border-amber-600'
-                          }`}
-                          title={`Fix reported error from ${ord.customer} on ${ord.osVersion}`}
-                        >
-                          <Wrench className="w-3 h-3" />
-                          <span>{ord.defectStatus === 'resolved' ? 'Fixed ✓' : 'Fix Error'}</span>
-                        </button>
-
-                        {/* Open Cart Details */}
-                        {onOpenCartModal && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenCartModal(ord.feedbackItem)}
-                            className="px-2 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold transition-all border border-slate-200 cursor-pointer"
-                            title="Inspect Buyer Cart Invoice Proof"
-                          >
-                            <ShoppingBag className="w-3 h-3 text-slate-600" />
-                          </button>
-                        )}
-
-                        {/* Watch User Video */}
-                        {onOpenVideoModal && (
-                          <button
-                            type="button"
-                            onClick={() => onOpenVideoModal(ord.feedbackItem)}
-                            className="p-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-all border border-slate-200 cursor-pointer"
-                            title="Watch User Video Audition"
-                          >
-                            <Play className="w-3 h-3 text-rose-500 fill-rose-500" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                    {isResolved ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpenCartModal
+                            ? onOpenCartModal(ord.feedbackItem)
+                            : onOpenVideoModal?.(ord.feedbackItem)
+                        }
+                        className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        View Order
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFixModal(ord)}
+                        className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap"
+                      >
+                        Fix Issue
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* ====================================================================

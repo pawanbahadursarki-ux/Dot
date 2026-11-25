@@ -9,7 +9,7 @@ import {
   Layers, Database, LogOut, Lock, Ban, UserX, UserCheck, ThumbsUp,
   ThumbsDown, Bot, Laptop, LayoutGrid, Receipt, AlertCircle,
   PieChart, BarChart2, ShoppingBag, ShoppingCart, Briefcase, Percent,
-  TrendingDown, PenTool, Video, Volume2, VolumeX, RotateCcw, QrCode
+  TrendingDown, PenTool, Video, Volume2, VolumeX, RotateCcw, QrCode, Copy
 } from 'lucide-react';
 import { 
   FeedbackItem, UserProfile, RegisteredUser, AdminAuditLog, 
@@ -203,7 +203,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [qrSettingsDraft, setQrSettingsDraft] = useState<KhaltiQrSettings>(khaltiQrSettings);
   const [showQrSettingsPanel, setShowQrSettingsPanel] = useState<boolean>(false);
   const [isSavingQrSettings, setIsSavingQrSettings] = useState<boolean>(false);
-  const [paymentOrderFilter, setPaymentOrderFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'history'>('all');
+  const [paymentOrderFilter, setPaymentOrderFilter] = useState<'all' | 'pending' | 'approved' | 'rejected' | 'history'>('pending');
   const [previewScreenshotUrl, setPreviewScreenshotUrl] = useState<string | null>(null);
   const [verifyOrderModal, setVerifyOrderModal] = useState<PaymentOrderRecord | null>(null);
   const [verifyKhaltiTxnId, setVerifyKhaltiTxnId] = useState<string>('');
@@ -898,6 +898,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
         enabled: qrSettingsDraft.enabled,
         qrImagePath: qrSettingsDraft.qrImagePath,
         accountHolderName: qrSettingsDraft.accountHolderName,
+        khaltiNumber: qrSettingsDraft.khaltiNumber || '',
         stage1Notice: qrSettingsDraft.stage1Notice || '',
         updatedByEmail: currentUser.email || 'pawanbahadursarki@gmail.com',
       });
@@ -3308,7 +3309,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <QrCode className="w-5 h-5 text-purple-600" />
                     <div>
                       <h3 className="font-extrabold text-sm sm:text-base text-slate-900 dark:text-white flex items-center gap-2 flex-wrap">
-                        <span>Manual Khalti QR Payments & Subscription History</span>
+                        <span>Subscription Payment Approvals & Khalti QR</span>
                         {pendingOrdersCount > 0 && (
                           <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-black">
                             {pendingOrdersCount} PENDING VERIFICATION
@@ -3316,7 +3317,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                         )}
                       </h3>
                       <p className="text-[11px] text-slate-500">
-                        Subscriptions stay Pending Verification until you confirm the exact funds arrived in your Khalti account. Duplicate Transaction IDs are blocked automatically.
+                        Real-time Khalti, eSewa &amp; Mobile Banking submissions. Subscriptions activate only after you approve the Transaction ID.
                       </p>
                     </div>
                   </div>
@@ -3364,6 +3365,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             type="text"
                             value={qrSettingsDraft.qrImagePath}
                             onChange={(e) => setQrSettingsDraft((p) => ({ ...p, qrImagePath: e.target.value }))}
+                            className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="text-[11px] font-bold text-slate-700 dark:text-slate-300 block mb-1">
+                            Khalti ID / Mobile Number (Optional Checkout Display)
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 98XXXXXXXX (optional)"
+                            value={qrSettingsDraft.khaltiNumber || ''}
+                            onChange={(e) => setQrSettingsDraft((p) => ({ ...p, khaltiNumber: e.target.value }))}
                             className="w-full bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-700 rounded-lg px-3 py-2 text-xs font-mono"
                           />
                         </div>
@@ -3429,10 +3443,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <>
                       <div className="flex items-center gap-1.5 flex-wrap border-b border-slate-200 dark:border-slate-800 pb-3">
                         {[
-                          { id: 'all' as const, label: `All Submissions (${paymentOrders.length})` },
                           { id: 'pending' as const, label: `Pending Verification (${pendingList.length})` },
                           { id: 'approved' as const, label: `Approved (${approvedList.length})` },
                           { id: 'rejected' as const, label: `Rejected (${rejectedList.length})` },
+                          { id: 'all' as const, label: `All Submissions (${paymentOrders.length})` },
                           { id: 'history' as const, label: `Subscription History (${payments.length})` },
                         ].map((tab) => (
                           <button
@@ -3522,13 +3536,13 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <table className="w-full text-left border-collapse text-xs">
                               <thead>
                                 <tr className="bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200 dark:border-slate-800 text-slate-500 uppercase text-[10px]">
-                                  <th className="py-3 px-3">Reference / Order ID</th>
-                                  <th className="py-3 px-3">Customer & Plan</th>
-                                  <th className="py-3 px-3">Price</th>
-                                  <th className="py-3 px-3">Khalti Txn ID & Dates</th>
-                                  <th className="py-3 px-3">Screenshot</th>
+                                  <th className="py-3 px-3">Company &amp; Plan</th>
+                                  <th className="py-3 px-3">Amount</th>
+                                  <th className="py-3 px-3">Paid Via</th>
+                                  <th className="py-3 px-3">Transaction ID &amp; Submitted</th>
+                                  <th className="py-3 px-3">Receipt</th>
                                   <th className="py-3 px-3">Status</th>
-                                  <th className="py-3 px-3 text-right">Admin Decision</th>
+                                  <th className="py-3 px-3 text-right">Actions</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -3536,17 +3550,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                   const isApproved = ord.status === 'verified' || ord.status === 'completed';
                                   const isRejected =
                                     ord.status === 'rejected' || ord.status === 'failed' || ord.status === 'cancelled';
+                                  const txnCode = ord.transactionReference || ord.khaltiTransactionId || '';
                                   return (
                                     <tr key={ord.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                                      <td className="py-3 px-3 font-mono font-bold text-slate-900 dark:text-white">
-                                        <div>{ord.purchaseOrderId}</div>
-                                        <div className="text-[10px] text-slate-400 font-normal">UID: {ord.uid.slice(0, 10)}...</div>
-                                      </td>
                                       <td className="py-3 px-3">
                                         <div className="font-bold text-slate-900 dark:text-white">{ord.companyName}</div>
                                         <div className="text-[11px] text-slate-500">
                                           {ord.planName} · <b>{ord.categoryName}</b>
                                         </div>
+                                        <div className="text-[10px] font-mono text-slate-400">{ord.purchaseOrderId}</div>
                                       </td>
                                       <td className="py-3 px-3 font-mono">
                                         <div className="font-bold text-emerald-700 dark:text-emerald-400">
@@ -3554,11 +3566,29 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                                         </div>
                                         <div className="text-[10px] text-slate-400">${ord.amountUSD}</div>
                                       </td>
+                                      <td className="py-3 px-3">
+                                        <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-purple-50 dark:bg-purple-950/60 text-purple-800 dark:text-purple-200 border border-purple-200 dark:border-purple-800 font-bold text-[11px]">
+                                          {ord.payerAccountOrBank || 'Khalti QR'}
+                                        </span>
+                                      </td>
                                       <td className="py-3 px-3 text-[11px]">
-                                        <div className="font-mono font-bold text-purple-700 dark:text-purple-400">
-                                          {ord.transactionReference || ord.khaltiTransactionId || '—'}
-                                        </div>
-                                        <div className="text-[10px] text-slate-500">
+                                        {txnCode ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              navigator.clipboard?.writeText(txnCode);
+                                              showToast(`Copied Transaction ID: ${txnCode}`);
+                                            }}
+                                            title="Click to copy Transaction ID"
+                                            className="inline-flex items-center gap-1.5 font-mono font-bold text-purple-700 dark:text-purple-300 bg-slate-100 dark:bg-slate-800 hover:bg-purple-100 dark:hover:bg-purple-900/50 px-2 py-1 rounded-md border border-slate-200 dark:border-slate-700 cursor-pointer transition-colors"
+                                          >
+                                            <span>{txnCode}</span>
+                                            <Copy className="w-3 h-3 opacity-75" />
+                                          </button>
+                                        ) : (
+                                          <span className="text-slate-400">—</span>
+                                        )}
+                                        <div className="text-[10px] text-slate-500 mt-1">
                                           Submitted: {new Date(ord.createdAt).toLocaleString()}
                                         </div>
                                         {ord.verifiedAt && (

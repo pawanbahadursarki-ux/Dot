@@ -1,4 +1,19 @@
-import { User, signInWithPopup, signInWithRedirect, getRedirectResult, signOut } from 'firebase/auth';
+import {
+  User,
+  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
+  signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  applyActionCode,
+  updateProfile,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence,
+} from 'firebase/auth';
 import {
   collection,
   doc,
@@ -27,7 +42,7 @@ import {
   UserProfile,
   WithdrawalTransaction,
 } from '../types';
-import { validateKhaltiNumericTxnId } from '../utils/khaltiReceiptScanner';
+import { validatePaymentTxnReference } from '../utils/khaltiReceiptScanner';
 
 export const BOOTSTRAPPED_ADMIN_EMAIL = 'pawanbahadursarki@gmail.com';
 
@@ -230,7 +245,8 @@ export function isHostInAuthorizedDomains(hostname: string, domains: string[]): 
 export async function fetchAuthorizedFirebaseDomains(): Promise<AuthorizedDomainsStatus> {
   const currentHost = typeof window !== 'undefined' ? window.location.hostname : '';
   const resp = await fetch(
-    `https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${encodeURIComponent(firebaseConfig.apiKey)}`
+    `https://www.googleapis.com/identitytoolkit/v3/relyingparty/getProjectConfig?key=${encodeURIComponent(firebaseConfig.apiKey)}`,
+    { cache: 'no-store' }
   );
   if (!resp.ok) {
     throw new Error(`Unable to check Firebase Authentication domains (HTTP ${resp.status}).`);
@@ -264,6 +280,29 @@ function formatGoogleAuthError(err: unknown): Error {
       `This domain (${targetHost}) is not yet authorized in Firebase Authentication for project "${firebaseConfig.projectId}". Add "${targetHost}" under Firebase Console → Authentication → Settings → Authorized domains (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings).`
     );
   }
+  if (code === 'auth/operation-not-allowed') {
+    return new Error(
+      `Email/Password sign-in is not yet enabled in Firebase Console for project "${firebaseConfig.projectId}". Enable Email/Password under Firebase Console → Authentication → Sign-in method (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers), or use Sign in with Google below.`
+    );
+  }
+  if (code === 'auth/email-already-in-use') {
+    return new Error('An account with this Gmail already exists. Switch to Sign in or use Forgot Password.');
+  }
+  if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {
+    return new Error('Incorrect email or password. Please double-check and try again.');
+  }
+  if (code === 'auth/weak-password') {
+    return new Error('Password must be at least 6 characters long.');
+  }
+  if (code === 'auth/invalid-email') {
+    return new Error('Please enter a valid email address.');
+  }
+  if (code === 'auth/too-many-requests') {
+    return new Error('Too many attempts. Please wait a moment before trying again.');
+  }
+  if (code === 'auth/expired-action-code' || code === 'auth/invalid-action-code') {
+    return new Error('This verification code is invalid or expired. Click Resend Verification Email to get a fresh one.');
+  }
   if (code === 'auth/popup-closed-by-user') {
     return new Error('Google Sign-In window was closed before completing sign-in.');
   }
@@ -271,11 +310,12 @@ function formatGoogleAuthError(err: unknown): Error {
     return new Error('Network error while connecting to Google Sign-In. Check your internet connection and try again.');
   }
   if (err instanceof Error) return err;
-  return new Error('Google Sign-In failed. Please try again.');
+  return new Error('Sign-in failed. Please try again.');
 }
 
-export async function signInWithGooglePopup(): Promise<User> {
+export async function signInWithGooglePopup(rememberMe = true): Promise<User> {
   try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence).catch(() => {});
     const cred = await signInWithPopup(auth, googleProvider);
     if (!cred.user.emailVerified) {
       throw new Error('Google email verification is required to access dot.');
@@ -327,6 +367,112 @@ export async function consumeGoogleRedirectAuth(): Promise<{
 export async function signOutFirebase(): Promise<void> {
   setPendingAuthAccountMode(null);
   await signOut(auth);
+}
+
+function buildVerificationActionSettings() {
+  if (typeof window === 'undefined') return undefined;
+  return {
+    url: `${window.location.origin}${window.location.pathname}`,
+    handleCodeInApp: false,
+  };
+}
+
+export function extractOobCodeFromInput(rawInput: string): string {
+  const trimmed = rawInput.trim();
+  if (!trimmed) return '';
+  if (trimmed.includes('oobCode=')) {
+    try {
+      const url = new URL(trimmed);
+      return url.searchParams.get('oobCode') || trimmed;
+    } catch {
+      const match = trimmed.match(/[?&]oobCode=([^&]+)/);
+      return match ? decodeURIComponent(match[1]) : trimmed;
+    }
+  }
+  return trimmed;
+}
+
+export async function signUpWithEmailAndSendVerification(params: {
+  name?: string;
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}): Promise<User> {
+  const { name, email, password, rememberMe = true } = params;
+  try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
+    const cleanName = (name || '').trim();
+    if (cleanName) {
+      await updateProfile(cred.user, { displayName: cleanName.slice(0, 100) }).catch(() => {});
+    }
+    await sendEmailVerification(cred.user, buildVerificationActionSettings());
+    return cred.user;
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
+}
+
+export async function signInWithEmailAndPasswordVerified(params: {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}): Promise<{ status: 'verified' | 'needs_verification'; user: User }> {
+  const { email, password, rememberMe = true } = params;
+  try {
+    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), password);
+    await cred.user.reload();
+    if (!cred.user.emailVerified) {
+      await sendEmailVerification(cred.user, buildVerificationActionSettings()).catch(() => {});
+      return { status: 'needs_verification', user: cred.user };
+    }
+    await cred.user.getIdToken(true);
+    return { status: 'verified', user: cred.user };
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
+}
+
+export async function resendVerificationEmailForCurrentUser(): Promise<void> {
+  const current = auth.currentUser;
+  if (!current) {
+    throw new Error('Please sign in first to send a Gmail verification email.');
+  }
+  try {
+    await sendEmailVerification(current, buildVerificationActionSettings());
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
+}
+
+export async function verifyGmailCodeOrRefreshStatus(rawCodeOrUrl?: string): Promise<User | null> {
+  try {
+    const cleanCode = rawCodeOrUrl ? extractOobCodeFromInput(rawCodeOrUrl) : '';
+    if (cleanCode) {
+      await applyActionCode(auth, cleanCode);
+    }
+    const current = auth.currentUser;
+    if (!current) {
+      return null;
+    }
+    await current.reload();
+    if (!current.emailVerified) {
+      return null;
+    }
+    await current.getIdToken(true);
+    return current;
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
+}
+
+export async function sendPasswordResetForEmail(email: string): Promise<void> {
+  try {
+    await sendPasswordResetEmail(auth, email.trim(), buildVerificationActionSettings());
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
 }
 
 const ensureUserInFlight = new Map<
@@ -702,8 +848,9 @@ export async function requestRealWithdrawalBatch(params: {
   });
 
   // Strict rules allow updating only ['walletBalance', 'lastWithdrawalRef', 'updatedAt'] atomically with withdrawal doc
+  const nextWalletBalance = Math.round((currentBalance - roundedAmount) * 100) / 100;
   batch.update(privateRef, {
-    walletBalance: currentBalance - roundedAmount,
+    walletBalance: nextWalletBalance,
     lastWithdrawalRef: withdrawalId,
     updatedAt: serverTimestamp(),
   });
@@ -1332,9 +1479,23 @@ function mapFeedbackDoc(data: Record<string, any>): FeedbackItem {
   } as FeedbackItem & { uid?: string };
 }
 
+function handleSnapshotError(
+  err: unknown,
+  operationType: OperationType,
+  path: string,
+  onError?: (err: unknown) => void
+): void {
+  try {
+    handleFirestoreError(err, operationType, path);
+  } catch (wrapped) {
+    onError?.(wrapped);
+  }
+}
+
 export function subscribeUserPrivateWallet(
   uid: string,
-  onData: (patch: Partial<UserProfile>) => void
+  onData: (patch: Partial<UserProfile>) => void,
+  onError?: (err: unknown) => void
 ): Unsubscribe {
   const path = `users/${uid}/private/info`;
   return onSnapshot(
@@ -1351,13 +1512,14 @@ export function subscribeUserPrivateWallet(
         title: d.title,
       });
     },
-    (err) => handleFirestoreError(err, OperationType.GET, path)
+    (err) => handleSnapshotError(err, OperationType.GET, path, onError)
   );
 }
 
 export function subscribeUserSubscription(
   uid: string,
-  onData: (sub: ActiveSubscriptionDoc | null) => void
+  onData: (sub: ActiveSubscriptionDoc | null) => void,
+  onError?: (err: unknown) => void
 ): Unsubscribe {
   const path = `subscriptions/${uid}`;
   return onSnapshot(
@@ -1385,13 +1547,14 @@ export function subscribeUserSubscription(
         updatedAt: tsToIso(d.updatedAt),
       });
     },
-    (err) => handleFirestoreError(err, OperationType.GET, path)
+    (err) => handleSnapshotError(err, OperationType.GET, path, onError)
   );
 }
 
 export function subscribeCompanyFeedback(
   isAdmin: boolean,
-  onData: (items: (FeedbackItem & { uid?: string })[]) => void
+  onData: (items: (FeedbackItem & { uid?: string })[]) => void,
+  onError?: (err: unknown) => void
 ): Unsubscribe {
   const path = 'feedback';
   const q = isAdmin
@@ -1406,13 +1569,14 @@ export function subscribeCompanyFeedback(
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       onData(list);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => handleSnapshotError(err, OperationType.LIST, path, onError)
   );
 }
 
 export function subscribeMyFeedback(
   uid: string,
-  onData: (items: FeedbackItem[]) => void
+  onData: (items: FeedbackItem[]) => void,
+  onError?: (err: unknown) => void
 ): Unsubscribe {
   const path = 'feedback';
   const q = query(collection(db, 'feedback'), where('uid', '==', uid));
@@ -1424,7 +1588,7 @@ export function subscribeMyFeedback(
         .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
       onData(list);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => handleSnapshotError(err, OperationType.LIST, path, onError)
   );
 }
 
@@ -1499,7 +1663,7 @@ export function subscribeWithdrawals(
 
       onData(adminList, txList);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => handleSnapshotError(err, OperationType.LIST, path, undefined)
   );
 }
 
@@ -1549,7 +1713,7 @@ export function subscribePayments(
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       onData(list);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => handleSnapshotError(err, OperationType.LIST, path, undefined)
   );
 }
 
@@ -1713,7 +1877,9 @@ function mapPaymentOrderDoc(d: Record<string, any>, fallbackId = ''): PaymentOrd
     stage: d.stage === 'stage2_khalti_api' ? 'stage2_khalti_api' : 'stage1_manual_qr',
     paymentMethod: d.paymentMethod === 'khalti_api' ? 'khalti_api' : 'khalti_qr',
     status: d.status || 'pending',
+    receiverKhaltiNumber: d.receiverKhaltiNumber ? String(d.receiverKhaltiNumber) : undefined,
     receiverAccountName: String(d.receiverAccountName || DEFAULT_KHALTI_QR_SETTINGS.accountHolderName),
+    payerAccountOrBank: d.payerAccountOrBank ? String(d.payerAccountOrBank) : undefined,
     submittedAmountNPR: typeof d.submittedAmountNPR === 'number' ? d.submittedAmountNPR : undefined,
     transactionReference: d.transactionReference ? String(d.transactionReference) : undefined,
     screenshotUrl: d.screenshotUrl ? String(d.screenshotUrl) : undefined,
@@ -1743,6 +1909,7 @@ export async function fetchKhaltiGatewayConfig(): Promise<{
         enabled: typeof d.enabled === 'boolean' ? d.enabled : true,
         qrImagePath: String(d.qrImagePath || DEFAULT_KHALTI_QR_SETTINGS.qrImagePath),
         accountHolderName: String(d.accountHolderName || DEFAULT_KHALTI_QR_SETTINGS.accountHolderName),
+        khaltiNumber: d.khaltiNumber ? String(d.khaltiNumber) : '',
         stage1Notice: d.stage1Notice ? String(d.stage1Notice) : DEFAULT_KHALTI_QR_SETTINGS.stage1Notice,
         updatedBy: String(d.updatedBy || BOOTSTRAPPED_ADMIN_EMAIL),
         updatedAt: tsToIso(d.updatedAt),
@@ -1782,6 +1949,7 @@ export async function saveKhaltiQrSettings(params: {
   enabled: boolean;
   qrImagePath: string;
   accountHolderName: string;
+  khaltiNumber?: string;
   stage1Notice: string;
   updatedByEmail: string;
 }): Promise<KhaltiQrSettings> {
@@ -1789,11 +1957,13 @@ export async function saveKhaltiQrSettings(params: {
   if (!cleanHolder) {
     throw new Error('Receiver account display name is required.');
   }
+  const cleanKhaltiNumber = (params.khaltiNumber || '').trim().slice(0, 30);
 
   let saved: KhaltiQrSettings = {
     enabled: params.enabled,
     qrImagePath: params.qrImagePath.trim() || DEFAULT_KHALTI_QR_SETTINGS.qrImagePath,
     accountHolderName: cleanHolder,
+    khaltiNumber: cleanKhaltiNumber,
     stage1Notice: params.stage1Notice.trim() || DEFAULT_KHALTI_QR_SETTINGS.stage1Notice,
     updatedBy: params.updatedByEmail || BOOTSTRAPPED_ADMIN_EMAIL,
     updatedAt: new Date().toISOString(),
@@ -1806,6 +1976,7 @@ export async function saveKhaltiQrSettings(params: {
         enabled: params.enabled,
         qrImagePath: params.qrImagePath.trim(),
         accountHolderName: cleanHolder,
+        khaltiNumber: cleanKhaltiNumber,
         stage1Notice: params.stage1Notice.trim(),
       }),
     });
@@ -1823,6 +1994,7 @@ export async function saveKhaltiQrSettings(params: {
       enabled: Boolean(saved.enabled),
       qrImagePath: saved.qrImagePath.slice(0, 500),
       accountHolderName: saved.accountHolderName.slice(0, 120),
+      ...(saved.khaltiNumber ? { khaltiNumber: saved.khaltiNumber.slice(0, 30) } : { khaltiNumber: '' }),
       stage1Notice: (saved.stage1Notice || '').slice(0, 400),
       updatedBy: (params.updatedByEmail || BOOTSTRAPPED_ADMIN_EMAIL).slice(0, 128),
       updatedAt: serverTimestamp(),
@@ -1849,6 +2021,7 @@ export function subscribeKhaltiQrSettings(
         enabled: typeof d.enabled === 'boolean' ? d.enabled : true,
         qrImagePath: String(d.qrImagePath || DEFAULT_KHALTI_QR_SETTINGS.qrImagePath),
         accountHolderName: String(d.accountHolderName || DEFAULT_KHALTI_QR_SETTINGS.accountHolderName),
+        khaltiNumber: d.khaltiNumber ? String(d.khaltiNumber) : '',
         stage1Notice: d.stage1Notice ? String(d.stage1Notice) : DEFAULT_KHALTI_QR_SETTINGS.stage1Notice,
         updatedBy: String(d.updatedBy || BOOTSTRAPPED_ADMIN_EMAIL),
         updatedAt: tsToIso(d.updatedAt),
@@ -1878,7 +2051,7 @@ export function subscribePaymentOrders(
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       onData(list);
     },
-    (err) => handleFirestoreError(err, OperationType.LIST, path)
+    (err) => handleSnapshotError(err, OperationType.LIST, path, undefined)
   );
 }
 
@@ -1954,6 +2127,8 @@ export async function submitStage1KhaltiQrOrder(params: {
   amountNPR: number;
   submittedAmountNPR?: number;
   transactionReference: string;
+  paidVia?: string;
+  receiverKhaltiNumber?: string;
   screenshotUrl?: string;
 }): Promise<PaymentOrderRecord> {
   const {
@@ -1969,8 +2144,13 @@ export async function submitStage1KhaltiQrOrder(params: {
     amountNPR,
     submittedAmountNPR,
     transactionReference,
+    paidVia,
+    receiverKhaltiNumber,
     screenshotUrl,
   } = params;
+
+  const cleanPaidVia = (paidVia || 'Khalti Wallet').trim().slice(0, 120) || 'Khalti Wallet';
+  const cleanReceiverNumber = (receiverKhaltiNumber || '').trim().slice(0, 30);
 
   const resolvedBrand =
     (brandCategory && brandCategory.toLowerCase() !== 'all' ? brandCategory : '') ||
@@ -1999,6 +2179,7 @@ export async function submitStage1KhaltiQrOrder(params: {
         expectedAmountNPR: amountNPR,
         submittedAmountNPR: submittedAmountNPR ?? amountNPR,
         transactionReference,
+        paidVia: cleanPaidVia,
         ...(screenshotUrl ? { screenshotUrl } : {}),
       }),
     });
@@ -2008,10 +2189,10 @@ export async function submitStage1KhaltiQrOrder(params: {
       throw err;
     }
 
-    // Static GitHub Pages fallback: enforce numeric Khalti format, exact amount, and duplicate guards before Firestore write
-    const txnCheck = validateKhaltiNumericTxnId(transactionReference);
+    // Static GitHub Pages fallback: enforce format, exact amount, and duplicate guards before Firestore write
+    const txnCheck = validatePaymentTxnReference(transactionReference, cleanPaidVia);
     if (!txnCheck.valid) {
-      throw new Error(txnCheck.reason || 'Invalid numeric Khalti Transaction ID.');
+      throw new Error(txnCheck.reason || 'Invalid Transaction ID.');
     }
     const cleanExpectedNPR = Math.round(Number(amountNPR || 0));
     const cleanSubmittedNPR = Math.round(Number(submittedAmountNPR ?? amountNPR));
@@ -2041,7 +2222,9 @@ export async function submitStage1KhaltiQrOrder(params: {
       stage: 'stage1_manual_qr',
       paymentMethod: 'khalti_qr',
       status: 'pending',
+      ...(cleanReceiverNumber ? { receiverKhaltiNumber: cleanReceiverNumber } : {}),
       receiverAccountName: DEFAULT_KHALTI_QR_SETTINGS.accountHolderName,
+      payerAccountOrBank: cleanPaidVia,
       submittedAmountNPR: cleanSubmittedNPR,
       transactionReference: txnCheck.normalized,
       ...(screenshotUrl ? { screenshotUrl } : {}),
@@ -2074,7 +2257,9 @@ export async function submitStage1KhaltiQrOrder(params: {
       stage: 'stage1_manual_qr',
       paymentMethod: 'khalti_qr',
       status: 'pending',
+      ...((ord.receiverKhaltiNumber || cleanReceiverNumber) ? { receiverKhaltiNumber: (ord.receiverKhaltiNumber || cleanReceiverNumber).slice(0, 30) } : {}),
       receiverAccountName: ord.receiverAccountName,
+      payerAccountOrBank: (ord.payerAccountOrBank || cleanPaidVia).slice(0, 120),
       submittedAmountNPR: Number(ord.submittedAmountNPR ?? submittedAmountNPR ?? amountNPR),
       transactionReference: (ord.transactionReference || transactionReference).slice(0, 120),
       ...(ord.screenshotUrl ? { screenshotUrl: ord.screenshotUrl.slice(0, 500) } : {}),
@@ -2188,6 +2373,7 @@ export async function approveStage1KhaltiOrderBatch(params: {
     purchaseOrderId: order.purchaseOrderId,
     khaltiTxnId: cleanTxnId.slice(0, 128),
     stage: 'stage1_manual_qr',
+    ...(order.payerAccountOrBank ? { payerAccountOrBank: order.payerAccountOrBank.slice(0, 120) } : {}),
     verifiedByAdminId: adminId.slice(0, 128),
     verifiedByAdminName: adminName.slice(0, 120),
     verifiedAt: verifiedAtIso,

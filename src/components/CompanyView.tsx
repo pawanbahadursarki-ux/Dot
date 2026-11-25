@@ -345,9 +345,6 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
   const [filterType, setFilterType] = useState<'all' | 'Compliment' | 'Bug Report' | 'Feature Request'>('all');
   const [onlyWithVideo, setOnlyWithVideo] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
-  const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [lastSyncTime, setLastSyncTime] = useState<string>('Live');
   const [showProfileModal, setShowProfileModal] = useState<boolean>(false);
 
   // Feedback scoped exclusively to this Company's active brand subscription(s)
@@ -646,9 +643,6 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
     );
   };
 
-  // Latest verified feedback within subscribed brand (null when no subscribed feedback exists)
-  const latestFeedback = useMemo(() => subscribedFeedback[0] || null, [subscribedFeedback]);
-
   // Representative feedback item for the selected brand (null if empty)
   const representativeItem = useMemo(() => {
     return filteredReviews.find(r => r.phone === currentModelPhone.id) || filteredReviews[0] || null;
@@ -682,42 +676,40 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
     document.body.removeChild(link);
   };
 
-  // Sync handler
-  const handleSync = () => {
-    setIsSyncing(true);
-    setTimeout(() => {
-      setIsSyncing(false);
-      setLastSyncTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-    }, 400);
-  };
-
   return (
     <div className="w-full bg-[#f8fafc] min-h-screen text-slate-900 pb-12">
-      
       {/* ========================================================
-          COMPANY DASHBOARD SUB-BAR: BRAND STATUS & LIVE ACTIONS
+          CLEAN SINGLE TOP NAVIGATION & ACTION BAR
           ======================================================== */}
-      <div className="bg-slate-900 text-white border-b border-slate-800 px-4 sm:px-6 py-2 sticky top-14 z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-3 flex-wrap">
-          
-          {/* Active Model & Access Quota */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full border ${
-              isSelectedBrandUnlocked 
-                ? 'text-emerald-300 bg-emerald-950/90 border-emerald-500/40' 
-                : 'text-amber-300 bg-amber-950/90 border-amber-500/40'
-            }`}>
-              {isSelectedBrandUnlocked ? `✓ ${activeBrandName} Unlocked` : `🔒 ${activeBrandName} Locked`}
-            </span>
-            <span className="text-xs text-slate-300">
-              Access: <span className="font-bold text-white">{unlockedBrandNames}</span> · {remainingReviewsQuota} quota left
-            </span>
-          </div>
+      <div className="bg-white/95 backdrop-blur-sm border-b border-slate-200 px-3 sm:px-6 py-1.5 sticky top-12 sm:top-13 z-30">
+        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 flex-wrap">
+          {/* Primary Section Tabs (Single Source of Truth) */}
+          <nav className="flex items-center gap-1 overflow-x-auto py-0.5 no-scrollbar">
+            {[
+              { id: 'chart' as const, label: 'Dashboard' },
+              { id: 'videos' as const, label: `Videos (${filteredReviews.length})` },
+              { id: 'cart' as const, label: 'Orders' },
+              { id: 'analysis' as const, label: 'AI Analysis' },
+              { id: 'insights' as const, label: 'Insights' },
+              { id: 'profile' as const, label: pendingOwnOrdersCount > 0 ? `Profile (${pendingOwnOrdersCount})` : 'Profile' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'bg-slate-900 text-white'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
 
-          {/* Quick Actions (Notifications, Board Chart, Demo, Upgrade, Sync) */}
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-
-            {/* REAL-TIME NOTIFICATION BELL WITH BADGE & DRAWER */}
+          {/* Compact Utility Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
             <div className="relative">
               <button
                 type="button"
@@ -727,104 +719,66 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
                     setAlertHistory(prev => prev.map(a => ({ ...a, read: true })));
                   }
                 }}
-                className="relative p-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 hover:text-white transition-all cursor-pointer flex items-center gap-1 shadow-xs"
-                title="Real-Time Video Review Alerts"
+                className="relative p-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                title="Video Review Alerts"
+                aria-label="Notifications"
               >
-                <Bell className="w-3.5 h-3.5 text-amber-400" />
+                <Bell className="w-4 h-4" />
                 {alertHistory.some(a => !a.read) && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-rose-500 text-white text-[9px] font-black flex items-center justify-center shadow-xs font-mono tabular-nums">
+                  <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 text-white text-[9px] font-bold flex items-center justify-center font-mono tabular-nums">
                     {alertHistory.filter(a => !a.read).length}
                   </span>
                 )}
               </button>
 
-              {/* Notification Drawer Popover */}
               {showNotificationDrawer && (
-                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-slate-950 text-white rounded-2xl shadow-2xl border border-indigo-500/40 p-3.5 z-50 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="flex items-center justify-between pb-2.5 border-b border-slate-800">
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-4 h-4 text-emerald-400" />
-                      <h4 className="font-extrabold text-xs text-white">Subscribed Brand Alerts</h4>
-                    </div>
+                <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white text-slate-900 rounded-2xl shadow-xl border border-slate-200 p-3.5 z-50">
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+                    <h4 className="font-bold text-xs text-slate-900">Recent Video Alerts</h4>
                     <button
                       type="button"
                       onClick={() => setShowNotificationDrawer(false)}
-                      className="text-slate-400 hover:text-white text-xs cursor-pointer"
+                      className="text-slate-400 hover:text-slate-700 text-xs cursor-pointer"
                     >
                       ✕
                     </button>
                   </div>
 
-                  <div className="py-1.5 flex items-center justify-between gap-2 border-b border-slate-800/60 text-[11px]">
-                    <span className="text-slate-400 truncate">Scope: <strong className="text-indigo-300">{unlockedBrandNames}</strong></span>
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-[10px] shrink-0">
-                      Live
-                    </span>
-                  </div>
-
-                  {/* List of alerts */}
                   <div className="max-h-64 overflow-y-auto space-y-2 mt-2">
                     {alertHistory.length === 0 ? (
-                      <div className="py-6 px-3 text-center text-xs text-slate-400">
+                      <div className="py-5 px-3 text-center text-xs text-slate-400">
                         {unlockedBrandNames.startsWith('None')
-                          ? 'Subscribe to a brand plan to receive live consumer feedback notifications for that brand.'
-                          : `No alerts yet for ${unlockedBrandNames}. New consumer feedback on your subscribed brand will trigger a live alert.`}
+                          ? 'Subscribe to a brand plan to receive live alerts.'
+                          : `No new alerts for ${unlockedBrandNames}.`}
                       </div>
                     ) : (
                       alertHistory.map((alert) => {
                         const p = phoneById(alert.feedback.phone);
                         const isFixed = alert.feedback.defectStatus === 'resolved';
-
                         return (
                           <div
                             key={alert.id}
-                            className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 hover:border-indigo-500/50 transition-all text-xs space-y-1.5"
+                            className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1"
                           >
                             <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-white text-xs">{alert.feedback.user}</span>
-                                <span className="text-[10px] text-slate-400">· {alert.feedback.city}</span>
-                              </div>
+                              <span className="font-bold text-slate-900">{alert.feedback.user}</span>
                               <span className="text-[10px] text-slate-400 font-mono">{alert.timestamp}</span>
                             </div>
-
-                            <div className="text-[11px] text-indigo-300 font-medium">
-                              {p.name} · <span className="text-emerald-400 font-mono font-bold">+${alert.cartAmountUSD} Cart</span>
-                            </div>
-
-                            <p className="text-[11px] text-slate-300 italic line-clamp-1">
-                              "{alert.feedback.dislike || alert.feedback.improve || 'Thermal throttle'}"
-                            </p>
-
-                            <div className="flex items-center justify-between pt-1 gap-1">
-                              <span className={`text-[9px] font-bold px-1.5 py-0.2 rounded ${
-                                isFixed ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/30' : 'bg-amber-950 text-amber-300 border border-amber-500/30'
-                              }`}>
-                                {isFixed ? '✓ Problem Fixed' : '🚨 Open Defect'}
+                            <div className="text-[11px] text-indigo-700 font-medium">{p.name}</div>
+                            <div className="flex items-center justify-between pt-1 gap-2">
+                              <span className={`text-[10px] font-semibold ${isFixed ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                {isFixed ? 'Fixed' : 'Open Issue'}
                               </span>
-
-                              <div className="flex items-center gap-1">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    onOpenVideoModal(alert.feedback);
-                                    setShowNotificationDrawer(false);
-                                  }}
-                                  className="px-2 py-0.5 rounded bg-indigo-600 hover:bg-indigo-500 text-white text-[10px] font-bold cursor-pointer"
-                                >
-                                  ▶ Watch
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    handleOpenFixProblem(alert.feedback);
-                                    setShowNotificationDrawer(false);
-                                  }}
-                                  className="px-2 py-0.5 rounded bg-amber-400 hover:bg-amber-300 text-slate-950 text-[10px] font-black cursor-pointer"
-                                >
-                                  🛠️ Fix
-                                </button>
-                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  onOpenVideoModal(alert.feedback);
+                                  setShowNotificationDrawer(false);
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[10px] font-semibold cursor-pointer"
+                              >
+                                Watch
+                              </button>
                             </div>
                           </div>
                         );
@@ -835,479 +789,85 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
               )}
             </div>
 
-            {/* BOARD CHART BUTTON */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('chart')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs ${
-                activeTab === 'chart'
-                  ? 'bg-indigo-600 text-white ring-2 ring-indigo-400'
-                  : 'bg-slate-900 hover:bg-slate-800 border border-slate-700 text-indigo-300'
-              }`}
-              title="Open Board Analytics Chart"
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Board Chart</span>
-            </button>
-
-            {/* INSIGHTS BUTTON */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('insights')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs whitespace-nowrap ${
-                activeTab === 'insights'
-                  ? 'bg-emerald-600 text-white ring-2 ring-emerald-400'
-                  : 'bg-slate-900 hover:bg-slate-800 border border-slate-700 text-emerald-300'
-              }`}
-              title="Open 30-Day Feedback Volume Insights"
-            >
-              <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Insights</span>
-            </button>
-
-            {/* PROFILE & ID DASHBOARD BUTTON */}
-            <button
-              type="button"
-              onClick={() => setActiveTab('profile')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all shadow-xs whitespace-nowrap ${
-                activeTab === 'profile'
-                  ? 'bg-purple-600 text-white ring-2 ring-purple-400'
-                  : 'bg-slate-900 hover:bg-slate-800 border border-slate-700 text-purple-200'
-              }`}
-              title="Open Company Profile & Account ID Dashboard"
-            >
-              {user?.avatar ? (
-                <img src={user.avatar} alt={user.name || 'Profile'} className="w-4 h-4 rounded-full object-cover" />
-              ) : (
-                <User className="w-3.5 h-3.5 text-purple-300" />
-              )}
-              <span>Profile ID</span>
-              {pendingOwnOrdersCount > 0 && (
-                <span className="px-1.5 py-0.2 rounded-full bg-amber-400 text-slate-950 text-[10px] font-black">
-                  {pendingOwnOrdersCount} Pending
-                </span>
-              )}
-            </button>
-
-            {/* BUY / UPGRADE BUTTON */}
-            <button
-              type="button"
-              onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
-              className="px-3.5 py-1.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-xs whitespace-nowrap"
-              title="Manage brand subscription plans"
-            >
-              <CreditCard className="w-3.5 h-3.5 fill-slate-950" />
-              <span>{activePlan?.priceUSD ? 'Upgrade Plan' : 'Buy Plan'}</span>
-              {activePlan?.priceUSD ? (
-                <span className="bg-slate-950/20 text-slate-950 px-1 py-0.2 rounded text-[10px] font-mono font-black tabular-nums">
-                  ${activePlan.priceUSD}
-                </span>
-              ) : null}
-            </button>
-
-            {/* Export CSV */}
             <button
               type="button"
               onClick={handleExportCSV}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-300 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
-              title="Download CSV"
+              className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs flex items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
+              title="Export CSV"
             >
-              <Download className="w-3.5 h-3.5 text-amber-400" />
+              <Download className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">CSV</span>
             </button>
 
-            {/* Refresh */}
             <button
               type="button"
-              onClick={handleSync}
-              disabled={isSyncing}
-              className="px-2.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 text-xs flex items-center gap-1 cursor-pointer transition-all"
-              title="Sync latest reviews"
+              onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap ${
+                isSelectedBrandUnlocked
+                  ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
+                  : 'bg-purple-600 hover:bg-purple-700 text-white'
+              }`}
             >
-              <RefreshCw className={`w-3.5 h-3.5 text-emerald-400 ${isSyncing ? 'animate-spin' : ''}`} />
-              <span className="text-[10px] font-mono hidden md:inline">{isSyncing ? 'Syncing...' : lastSyncTime}</span>
+              <CreditCard className="w-3.5 h-3.5" />
+              <span>{isSelectedBrandUnlocked ? 'Upgrade Plan' : 'Buy Subscription'}</span>
             </button>
-
           </div>
-
         </div>
       </div>
 
-      {/* Main Single-Page Container */}
-      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-3.5 space-y-3.5 w-full">
+      {/* Main Container */}
+      <main className="max-w-6xl mx-auto px-3 sm:px-6 pt-3 space-y-3 w-full">
+        {/* Compact Single-Row Brand Tabs */}
+        <div className="bg-white rounded-xl border border-slate-200 px-2.5 py-1.5 flex items-center gap-1 overflow-x-auto no-scrollbar">
+          {brandCategories.map((brand) => {
+            const isSelected = selectedBrandCategory === brand.id;
+            const isUnlocked = isBrandUnlocked(brand.folderName, user, activePlan);
 
-        {/* ========================================================
-            STEP 1: LIVE VERIFIED CUSTOMER FEEDBACK OVERVIEW
-            ======================================================== */}
-        {latestFeedback ? (
-          <section className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 sm:p-5 border border-indigo-800/40 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1.5 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-300 bg-emerald-400/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
-                  Live Verified Feedback
-                </span>
-                <span className="text-xs text-slate-300">
-                  Latest real customer video submission synced via Cloud Firestore
-                </span>
-              </div>
-
-              <div className="flex items-baseline gap-2 flex-wrap pt-0.5">
-                <h2 className="text-base sm:text-lg font-black text-white">
-                  {phoneById(latestFeedback.phone).name} ({latestFeedback.user})
-                </h2>
-                <span className="text-xs text-emerald-400 font-bold">
-                  ★ {latestFeedback.rating}.0 · {getSentimentScore(latestFeedback)}% Positive
-                </span>
-                {latestFeedback.defectStatus === 'resolved' ? (
-                  <span className="text-[10px] font-mono font-bold text-emerald-300 bg-emerald-950/80 px-2 py-0.5 rounded-full border border-emerald-500/40 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                    <span>Problem Fixed ({latestFeedback.defectFixedInVersion || 'Resolved'})</span>
-                  </span>
+            return (
+              <button
+                key={brand.id}
+                type="button"
+                onClick={() => setSelectedBrandCategory(brand.id)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0 ${
+                  isSelected
+                    ? 'bg-slate-900 text-white'
+                    : isUnlocked
+                    ? 'bg-emerald-50 text-emerald-900 hover:bg-emerald-100'
+                    : 'text-slate-600 hover:bg-slate-100'
+                }`}
+              >
+                <span>{brand.icon}</span>
+                <span>{brand.label}</span>
+                {isUnlocked ? (
+                  <CheckCircle2 className={`w-3.5 h-3.5 ${isSelected ? 'text-emerald-400' : 'text-emerald-600'}`} />
                 ) : (
-                  <span className="text-[10px] font-mono font-bold text-rose-300 bg-rose-950/80 px-2 py-0.5 rounded-full border border-rose-500/40 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3 text-rose-400" />
-                    <span>Problem Needs Fix</span>
-                  </span>
+                  <Lock className={`w-3 h-3 ${isSelected ? 'text-amber-300' : 'text-slate-400'}`} />
                 )}
-              </div>
-
-              {isFeedbackItemUnlocked(latestFeedback, user, activePlan) ? (
-                <div className="text-xs text-slate-300 leading-relaxed space-y-1">
-                  {latestFeedback.like && (
-                    <p>
-                      <b className="text-emerald-400">Praise:</b> "{latestFeedback.like}"
-                    </p>
-                  )}
-                  {latestFeedback.defectStatus === 'resolved' ? (
-                    <div className="p-2 rounded-xl bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-1.5 text-xs">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                        <span><b>Problem Fixed ({latestFeedback.defectFixedInVersion || 'Patched'}):</b> "{latestFeedback.defectResolutionNote || 'Resolved in latest release.'}"</span>
-                      </div>
-                    </div>
-                  ) : (latestFeedback.dislike || latestFeedback.improve) ? (
-                    <p>
-                      <b className="text-rose-400">Defect / Problem:</b> "{latestFeedback.dislike || latestFeedback.improve}"
-                    </p>
-                  ) : null}
-                </div>
-              ) : (
-                <p className="text-xs text-amber-200/90">
-                  Buy the {getBrandFolder(latestFeedback.phone, latestFeedback.brandFolder)} subscription to unlock full transcript, defect details, and video playback.
-                </p>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              <button
-                type="button"
-                onClick={() => handleOpenFixProblem(latestFeedback)}
-                disabled={latestFeedback.defectStatus === 'resolved' && user?.role !== 'company_admin'}
-                className={`px-3.5 py-2 rounded-xl font-black text-xs flex items-center gap-1.5 shadow-md transition-all ${
-                  !isFeedbackItemUnlocked(latestFeedback, user, activePlan)
-                    ? 'bg-amber-400 hover:bg-amber-300 text-slate-950 cursor-pointer'
-                    : latestFeedback.defectStatus === 'resolved'
-                    ? 'bg-emerald-700/80 text-white border border-emerald-400/50 cursor-default'
-                    : 'bg-amber-400 hover:bg-amber-300 text-slate-950 border border-amber-300 cursor-pointer'
-                }`}
-              >
-                <Wrench className="w-3.5 h-3.5" />
-                <span>
-                  {!isFeedbackItemUnlocked(latestFeedback, user, activePlan)
-                    ? '🔒 Unlock to Fix'
-                    : latestFeedback.defectStatus === 'resolved'
-                    ? '✓ Problem Fixed (Locked)'
-                    : '🛠️ Fix This Problem'}
-                </span>
               </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isFeedbackItemUnlocked(latestFeedback, user, activePlan)) {
-                    onOpenSubscriptionModal(selectedBrandCategory);
-                    return;
-                  }
-                  onOpenVideoModal(latestFeedback, 'transcript');
-                }}
-                className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all whitespace-nowrap"
-              >
-                <Eye className="w-3.5 h-3.5 text-sky-300" />
-                <span>Inspect Data</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  if (!isFeedbackItemUnlocked(latestFeedback, user, activePlan)) {
-                    onOpenSubscriptionModal(selectedBrandCategory);
-                    return;
-                  }
-                  onOpenVideoModal(latestFeedback, 'summary');
-                }}
-                className="px-4 py-2 rounded-xl bg-gradient-to-r from-rose-500 to-amber-500 hover:brightness-110 text-white font-black text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all whitespace-nowrap"
-              >
-                <Play className="w-3.5 h-3.5 fill-white" />
-                <span>{isFeedbackItemUnlocked(latestFeedback, user, activePlan) ? 'Watch Latest Video' : 'Subscribe to Watch'}</span>
-              </button>
-            </div>
-          </section>
-        ) : (
-          <section className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-4 sm:p-5 border border-indigo-800/40 text-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-400/30">
-                Real-Time Feedback Workspace
-              </span>
-              <h2 className="text-base sm:text-lg font-black text-white pt-1">
-                No Verified Customer Video Feedback Recorded Yet
-              </h2>
-              <p className="text-xs text-slate-300">
-                When customers submit real 1-minute smartphone video feedback in the Consumer App, it appears here automatically in real time.
-              </p>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 flex-wrap">
-              {onNavigateHome && (
-                <button
-                  type="button"
-                  onClick={onNavigateHome}
-                  className="px-4 py-2 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer transition-all"
-                >
-                  <Home className="w-3.5 h-3.5 text-emerald-300" />
-                  <span>Go to Consumer App</span>
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
-                className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>View Subscription Plans</span>
-              </button>
-            </div>
-          </section>
-        )}
-
-        {/* Mobile Phone Category Selector */}
-        <section className="bg-white rounded-2xl p-3.5 sm:p-4 border border-slate-200 shadow-2xs space-y-2.5">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
-            <h3 className="text-xs sm:text-sm font-black text-slate-900 tracking-tight">
-              Select Your Mobile Phone Category
-            </h3>
-            <span className="text-[11px] text-slate-500 font-medium">
-              1 Model field = 1 Access · Unlocked: <b>{unlockedBrandNames}</b>
-            </span>
-          </div>
-
-          {/* Clean Segmented Brand Chips */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2">
-            {brandCategories.map((brand) => {
-              const isSelected = selectedBrandCategory === brand.id;
-              const isUnlocked = isBrandUnlocked(brand.folderName, user, activePlan);
-              
-              // Only count reviews for the actively subscribed brand; locked brands never expose counts
-              const count = isUnlocked
-                ? subscribedFeedback.filter(f => {
-                    const folder = getBrandFolder(f.phone, f.brandFolder).toLowerCase();
-                    const phoneBrand = phoneById(f.phone).brand.toLowerCase();
-                    return folder.includes(brand.id) || phoneBrand.includes(brand.id);
-                  }).length
-                : 0;
-
-              return (
-                <button
-                  key={brand.id}
-                  type="button"
-                  onClick={() => setSelectedBrandCategory(brand.id)}
-                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                    isSelected
-                      ? 'bg-slate-900 text-white border-slate-900 shadow-xs ring-2 ring-indigo-500'
-                      : isUnlocked
-                      ? 'bg-slate-50 hover:bg-slate-100 text-slate-800 border-slate-200'
-                      : 'bg-amber-50/60 hover:bg-amber-100/60 text-slate-800 border-amber-200'
-                  }`}
-                >
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-base">{brand.icon}</span>
-                    {isUnlocked ? (
-                      <span className={`text-[10px] font-bold ${isSelected ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                        ✓ Active
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-amber-600 flex items-center gap-0.5">
-                        <Lock className="w-2.5 h-2.5" /> Locked
-                      </span>
-                    )}
-                  </div>
-                  <div className="font-bold text-xs truncate leading-tight">
-                    {brand.label}
-                  </div>
-                  <div className={`text-[10px] mt-1 font-mono ${isSelected ? 'text-slate-300' : 'text-slate-500'}`}>
-                    {isUnlocked ? `${count} ${count === 1 ? 'review' : 'reviews'}` : 'Buy Subscription'}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* SUBSCRIPTION STATUS / ACTION */}
-        <section className={`rounded-2xl p-3.5 sm:p-4 border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
-          isSelectedBrandUnlocked
-            ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-            : 'bg-amber-50 border-amber-300 text-amber-950'
-        }`}>
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              {isSelectedBrandUnlocked ? (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : (
-                <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-              )}
-              <h4 className="text-xs sm:text-sm font-black">
-                {isSelectedBrandUnlocked
-                  ? `Active Access: ${activeBrandName}`
-                  : `Buy Subscription to View ${activeBrandName} Feedback Data`
-                }
-              </h4>
-            </div>
-            <p className="text-xs text-slate-600">
-              {isSelectedBrandUnlocked
-                ? `You have active single-brand access to verified ${activeBrandName} customer video reviews & defect analysis. (${remainingReviewsQuota} quota left).`
-                : `One time, one subscription used: ${activeBrandName} data is locked.${unlockedBrandNames !== 'None (Subscription Required)' ? ` Currently subscribed to ${unlockedBrandNames}.` : ''} Buy a subscription for ${activeBrandName} to view its mobile feedback data.`
-              }
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2 shrink-0 flex-wrap">
-            {!isSelectedBrandUnlocked ? (
-              <button
-                type="button"
-                onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
-                className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs flex items-center gap-1.5 cursor-pointer transition-all shadow-xs"
-              >
-                <CreditCard className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Buy {activeBrandName} Subscription ($15.99)</span>
-              </button>
-            ) : (
-              <button
-                type="button"
-                onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
-                className="px-3 py-1.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-800 font-bold text-xs flex items-center gap-1 cursor-pointer transition-all"
-              >
-                <span>Switch Brand Subscription</span>
-              </button>
-            )}
-          </div>
-        </section>
+            );
+          })}
+        </div>
 
         {/* ========================================================
-            STEP 4: SEE VIDEOS, AI CART & MODEL DATA ANALYSIS
-            "and then they see video or cart"
-            "Fist buy the auction then visible the data Others which not visible"
+            CONTENT WORKSPACE
             ======================================================== */}
-        <section className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-          
-          {/* Header & Clean Tabs */}
-          <div className="p-3.5 sm:p-4 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
-            
-            {/* Tab Buttons */}
-            <div className="inline-flex p-1 rounded-xl bg-slate-100 border border-slate-200 flex-wrap gap-1">
-              <button
-                type="button"
-                onClick={() => setActiveTab('chart')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'chart'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
-                <span>Board Chart & Analytics</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('insights')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'insights'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
-                <span>Insights</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('videos')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'videos'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Play className="w-3.5 h-3.5 text-rose-500 fill-rose-500" />
-                <span>Customer Videos ({filteredReviews.length})</span>
-              </button>
-              
-              <button
-                type="button"
-                onClick={() => setActiveTab('cart')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'cart'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShoppingBag className="w-3.5 h-3.5 text-emerald-600" />
-                <span>AI Cart & Orders</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('analysis')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'analysis'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <BarChart3 className="w-3.5 h-3.5 text-indigo-600" />
-                <span>{activeBrandName} Data Analysis</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveTab('profile')}
-                className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  activeTab === 'profile'
-                    ? 'bg-white text-slate-900 shadow-xs font-black'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <User className="w-3.5 h-3.5 text-purple-600" />
-                <span>Profile & ID</span>
-              </button>
-            </div>
-
-            {/* Quick Type Filter for Videos */}
-            {activeTab === 'videos' && isSelectedBrandUnlocked && (
+        <section className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+          {activeTab === 'videos' && isSelectedBrandUnlocked && (
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-2 flex-wrap">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search user, device, issue..."
+                className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-48 sm:w-60"
+              />
               <div className="flex items-center gap-1.5 flex-wrap">
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter by user, model, transcript..."
-                  className="px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-500 w-36 sm:w-48"
-                />
                 {(['all', 'Compliment', 'Bug Report', 'Feature Request'] as const).map((t) => (
                   <button
                     key={t}
                     type="button"
                     onClick={() => setFilterType(t)}
-                    className={`px-2 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all whitespace-nowrap ${
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors whitespace-nowrap ${
                       filterType === t
                         ? 'bg-slate-900 text-white'
                         : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
@@ -1319,56 +879,46 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setOnlyWithVideo((v) => !v)}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer transition-all flex items-center gap-1 whitespace-nowrap ${
+                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold cursor-pointer transition-colors flex items-center gap-1 whitespace-nowrap ${
                     onlyWithVideo
                       ? 'bg-indigo-600 text-white'
-                      : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200'
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
                   <Film className="w-3 h-3" />
-                  <span>Recorded Video</span>
+                  <span>Video Only</span>
                 </button>
               </div>
-            )}
+            </div>
+          )}
 
-          </div>
-
-          {/* ========================================================
-              IF NOT UNLOCKED: DATA IS NOT VISIBLE (LOCKED GATE)
-              Profile & ID dashboard remains accessible even without a brand plan
-              ======================================================== */}
+          {/* Locked Brand Gate (Profile remains accessible) */}
           {!isSelectedBrandUnlocked && activeTab !== 'profile' ? (
-            <div className="p-8 sm:p-12 text-center bg-slate-50/70 border-t border-slate-100">
-              <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
-                <Lock className="w-7 h-7" />
+            <div className="p-7 sm:p-8 text-center bg-slate-50/60">
+              <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-2.5">
+                <Lock className="w-5 h-5" />
               </div>
-              <h3 className="font-black text-base sm:text-lg text-slate-900 tracking-tight">
-                {activeBrandName} Video Reviews & AI Data Are Locked
+              <h3 className="font-bold text-base text-slate-900">
+                {activeBrandName} is Locked
               </h3>
-              <p className="text-xs text-slate-600 max-w-md mx-auto mt-1.5 mb-5 leading-relaxed">
-                Buy a subscription for <b>{activeBrandName}</b> to make verified customer speaking clips, defect roadmaps, and AI Cart visible for this brand.
-                <br />
-                <span className="text-[11px] text-slate-500 mt-1 block">
-                  Active Subscription: <b>{unlockedBrandNames}</b> (One time, one subscription per mobile brand).
-                </span>
+              <p className="text-xs text-slate-500 max-w-sm mx-auto mt-1 mb-3.5">
+                Subscribe to unlock verified {activeBrandName} customer videos, feedback insights, and orders.
               </p>
-              <div className="flex items-center justify-center gap-2.5 flex-wrap">
-                <button
-                  type="button"
-                  onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
-                  className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs flex items-center gap-2 shadow-md cursor-pointer transition-all"
-                >
-                  <CreditCard className="w-4 h-4 text-emerald-400" />
-                  <span>Buy {activeBrandName} Subscription ($15.99/mo)</span>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => onOpenSubscriptionModal(selectedBrandCategory)}
+                className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs inline-flex items-center gap-1.5 cursor-pointer transition-colors"
+              >
+                <CreditCard className="w-3.5 h-3.5" />
+                <span>Buy {activeBrandName} Subscription</span>
+              </button>
             </div>
           ) : (
             <>
               {/* TAB CONTENT 0: BOARD CHART & METRICS */}
               {activeTab === 'chart' && (
-                <div className="p-3.5 sm:p-5">
-                  <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-400">Loading analytics dashboard...</div>}>
+                <div className="p-3 sm:p-4">
+                  <Suspense fallback={<div className="p-6 text-center text-xs font-semibold text-slate-400">Loading analytics dashboard...</div>}>
                     <CompanyBoardAnalytics
                       feedbackList={subscribedFeedback}
                       activePlan={activePlan}
@@ -1553,63 +1103,59 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
                 );
               })()}
 
-              {/* TAB CONTENT 1: VERIFIED CUSTOMER VIDEOS (VISIBLE WHEN UNLOCKED) */}
+              {/* TAB CONTENT 1: CLEAN CUSTOMER VIDEOS */}
               {activeTab === 'videos' && (
-                <div className="p-3.5 sm:p-5">
+                <div className="p-4 sm:p-5">
                   {filteredReviews.length === 0 ? (
                     <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-200">
-                      <Film className="w-8 h-8 text-slate-400 mx-auto mb-1.5" />
-                      <h4 className="font-bold text-xs text-slate-800">No Video Reviews In This Brand Category</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Clear your search query or await new customer video submissions for {activeBrandName}.
+                      <Film className="w-7 h-7 text-slate-400 mx-auto mb-1.5" />
+                      <h4 className="font-bold text-xs text-slate-800">No Video Reviews Yet</h4>
+                      <p className="text-xs text-slate-500 mt-0.5">
+                        Clear your search filter or await new submissions for {activeBrandName}.
                       </p>
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {filteredReviews.map((item) => {
                         const phone = phoneById(item.phone);
-                        const sentimentScore = getSentimentScore(item);
-                        const cat = getFeedbackCategory(item);
+                        const isResolved = item.defectStatus === 'resolved';
+                        const summaryLine = item.dislike || item.improve || item.like || 'Verified customer review';
 
                         return (
                           <div
                             key={item.id}
-                            className="p-3.5 rounded-2xl bg-slate-50/80 hover:bg-white border border-slate-200 hover:border-indigo-300 transition-all flex flex-col justify-between space-y-2.5"
+                            className="p-4 rounded-2xl bg-slate-50/70 hover:bg-white border border-slate-200 transition-colors flex flex-col justify-between space-y-3"
                           >
-                            {/* Header: User, City, Model, Stars */}
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-center gap-2">
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2.5 min-w-0">
                                 {item.userAvatar ? (
-                                  <img src={item.userAvatar} alt={item.user} className="w-8 h-8 rounded-full object-cover border border-slate-200" />
+                                  <img src={item.userAvatar} alt={item.user} className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0" />
                                 ) : (
-                                  <div className="w-8 h-8 rounded-full bg-indigo-600 text-white font-bold text-xs flex items-center justify-center">
+                                  <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
                                     {item.user[0]}
                                   </div>
                                 )}
-                                <div>
-                                  <div className="flex items-center gap-1.5">
-                                    <span className="font-extrabold text-xs text-slate-900">{item.user}</span>
-                                    <span className="text-[10px] text-slate-400">· {item.city}</span>
+                                <div className="min-w-0">
+                                  <div className="font-bold text-xs text-slate-900 truncate">
+                                    {item.user} <span className="font-normal text-slate-400">· {item.city}</span>
                                   </div>
-                                  <span className="text-[11px] font-bold text-indigo-700 block leading-tight">
-                                    {phone.name}
-                                  </span>
+                                  <div className="text-[11px] font-medium text-indigo-700 truncate">
+                                    {phone.name} · ★ {item.rating}.0
+                                  </div>
                                 </div>
                               </div>
 
-                              <div className="text-right">
-                                <span className="text-amber-500 font-bold text-xs">
-                                  {'★'.repeat(item.rating)}
-                                </span>
-                                <span className={`block text-[10px] font-mono font-bold ${
-                                  sentimentScore >= 80 ? 'text-emerald-700' : 'text-amber-700'
-                                }`}>
-                                  {sentimentScore}% {cat}
-                                </span>
-                              </div>
+                              <span
+                                className={`px-2.5 py-0.5 rounded-full text-[11px] font-semibold border shrink-0 ${
+                                  isResolved
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                    : 'bg-amber-50 text-amber-800 border-amber-200'
+                                }`}
+                              >
+                                {isResolved ? 'Fixed' : 'Open Issue'}
+                              </span>
                             </div>
 
-                            {/* Hover-to-Preview Video Thumbnail when recorded user video exists */}
                             {item.videoUrl && (
                               <HoverVideoThumbnail
                                 item={item}
@@ -1617,66 +1163,18 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
                               />
                             )}
 
-                            {/* Praises & Defects Quote */}
-                            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 text-xs space-y-1">
-                              {item.like && (
-                                <p className="text-slate-800 leading-snug line-clamp-2">
-                                  <b className="text-emerald-700 font-bold">Liked: </b>
-                                  <span>{item.like}</span>
-                                </p>
-                              )}
-                              {(item.dislike || item.improve) && (
-                                <p className="text-rose-900 leading-snug line-clamp-2">
-                                  <b className="text-rose-700 font-bold">Defect: </b>
-                                  <span>{item.dislike || item.improve}</span>
-                                </p>
-                              )}
-                            </div>
+                            <p className="text-xs text-slate-600 line-clamp-2">{summaryLine}</p>
 
-                            {/* Actions: Watch Video, View Data, AI Cart, Chat */}
-                            <div className="flex items-center gap-1.5 pt-1 flex-wrap">
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
                                 onClick={() => onOpenVideoModal(item, 'summary')}
-                                className="flex-1 min-w-[110px] py-1.5 px-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all shadow-2xs whitespace-nowrap"
+                                className="flex-1 py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-colors"
                               >
-                                <Play className="w-3 h-3 fill-white" />
+                                <Play className="w-3.5 h-3.5 fill-white" />
                                 <span>{item.videoUrl ? 'Watch Video' : 'Open Review'}</span>
                               </button>
-
-                              <button
-                                type="button"
-                                onClick={() => onOpenVideoModal(item, 'transcript')}
-                                className="py-1.5 px-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-800 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-                                title="Inspect Q&A answers, transcript, and hardware telemetry"
-                              >
-                                <Eye className="w-3 h-3 text-indigo-700" />
-                                <span>Data</span>
-                              </button>
-
-                              {/* AI Cart */}
-                              <button
-                                type="button"
-                                onClick={() => onOpenCartModal(item)}
-                                className="py-1.5 px-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-                                title="Open AI Cart / Purchase Intent for this phone"
-                              >
-                                <ShoppingBag className="w-3 h-3 text-emerald-700" />
-                                <span>Cart</span>
-                              </button>
-
-                              {/* Chat */}
-                              <button
-                                type="button"
-                                onClick={() => onOpenChatModal(item)}
-                                className="py-1.5 px-2.5 rounded-xl bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 font-bold text-xs flex items-center justify-center gap-1 cursor-pointer transition-all whitespace-nowrap"
-                                title="Direct 1-on-1 Chat with reviewer"
-                              >
-                                <MessageSquare className="w-3 h-3 text-indigo-600" />
-                                <span>Chat</span>
-                              </button>
                             </div>
-
                           </div>
                         );
                       })}
@@ -1685,93 +1183,83 @@ export const CompanyView: React.FC<CompanyViewProps> = ({
                 </div>
               )}
 
-              {/* TAB CONTENT 2: AI CART & HARDWARE ORDERS (VISIBLE WHEN UNLOCKED) */}
+              {/* TAB CONTENT 2: CLEAN FEEDBACK & ORDERS LIST */}
               {activeTab === 'cart' && (
-                <div className="p-4 sm:p-5 space-y-3.5">
-                  <div className="flex items-center justify-between mb-1">
-                    <div>
-                      <h4 className="font-black text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
-                        <ShoppingBag className="w-4 h-4 text-emerald-600" />
-                        <span>AI Cart & Verified Customer Purchase Orders</span>
-                      </h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Active purchase intent and verified buyer carts linked to {activeBrandName} video reviews
-                      </p>
-                    </div>
+                <div className="divide-y divide-slate-100">
+                  <div className="px-4 py-3 flex items-center justify-between gap-2">
+                    <h4 className="font-bold text-sm text-slate-900">
+                      Orders &amp; Feedback ({filteredReviews.length})
+                    </h4>
                   </div>
 
                   {filteredReviews.length === 0 ? (
-                    <div className="text-center py-10 bg-slate-50 rounded-xl border border-slate-200">
-                      <ShoppingBag className="w-8 h-8 text-slate-400 mx-auto mb-1.5" />
-                      <h4 className="font-bold text-xs text-slate-800">No Buyer Cart Records Yet</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5">
-                        Verified customer feedback for {activeBrandName} will appear here as AI Cart records automatically.
-                      </p>
+                    <div className="text-center py-8 px-4 text-xs text-slate-400">
+                      No orders or customer feedback recorded for {activeBrandName} yet.
                     </div>
                   ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                      {filteredReviews.map((r) => {
-                        const p = phoneById(r.phone);
-                        const userOS = r.osVersion || r.cartData?.osVersion || getPhoneOS(r.phone);
-                        const userAppVer = r.appVersion || r.cartData?.appVersion || 'N/A';
-                        const reportedBug = r.dislike || r.improve || 'No defects reported';
-                        const isFixed = r.defectStatus === 'resolved';
+                    filteredReviews.map((r) => {
+                      const p = phoneById(r.phone);
+                      const reportedIssue = r.dislike || r.improve || r.like || 'No issues reported';
+                      const isFixed = r.defectStatus === 'resolved';
 
-                        return (
-                          <div key={r.id} className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col justify-between space-y-2.5">
-                            <div>
-                              <div className="flex items-center justify-between text-xs font-bold mb-1">
-                                <span className="text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-full text-[10px] font-black">
-                                  VERIFIED BUYER CART
-                                </span>
-                                <span className="font-mono text-slate-900 font-bold">
-                                  {r.cartData?.priceUSD ? `$${r.cartData.priceUSD}` : rs(p.reward * 100)}
-                                </span>
+                      return (
+                        <div
+                          key={r.id}
+                          className="px-4 py-2.5 hover:bg-slate-50/70 transition-colors flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                        >
+                          <div className="flex items-center gap-3 min-w-0 sm:w-[30%]">
+                            {r.userAvatar ? (
+                              <img src={r.userAvatar} alt={r.user} className="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-slate-900 text-white font-bold text-xs flex items-center justify-center shrink-0">
+                                {r.user[0]}
                               </div>
-                              <h5 className="font-black text-xs sm:text-sm text-slate-900">{p.name}</h5>
-                              <p className="text-[11px] text-slate-600 mt-0.5">
-                                <b>{r.user}</b> ({r.city}) · Rating: {r.rating}★
-                              </p>
-
-                              {/* User OS & App Version */}
-                              <div className="mt-2 p-1.5 rounded-lg bg-purple-50 border border-purple-200 text-[10px] font-mono flex items-center justify-between">
-                                <span className="text-purple-800 font-bold flex items-center gap-1">
-                                  <Cpu className="w-2.5 h-2.5" />
-                                  <span>{userOS}</span>
+                            )}
+                            <div className="min-w-0">
+                              <div className="font-bold text-xs text-slate-900 truncate">
+                                {r.user} <span className="font-normal text-slate-400">· {r.city}</span>
+                              </div>
+                              <div className="text-[11px] font-medium text-indigo-700 truncate">
+                                {p.name}{' '}
+                                <span className="text-slate-400 font-mono">
+                                  · {r.cartData?.priceUSD ? `$${r.cartData.priceUSD}` : rs(p.reward * 100)}
                                 </span>
-                                <span className="text-purple-600 font-bold">{userAppVer}</span>
-                              </div>
-
-                              {/* Reported Defect / Error */}
-                              <div className="mt-2 p-1.5 rounded-lg bg-white border border-slate-200 text-[11px]">
-                                <div className="flex items-center justify-between text-[10px] mb-0.5">
-                                  <span className="text-slate-500 font-bold">Reported Defect:</span>
-                                  <span className={`font-bold ${isFixed ? 'text-emerald-600' : 'text-amber-600'}`}>
-                                    {isFixed ? '✓ Fixed' : '🚨 Open Defect'}
-                                  </span>
-                                </div>
-                                <p className="text-slate-800 italic line-clamp-2">
-                                  "{reportedBug}"
-                                </p>
-                              </div>
-
-                              <div className="text-[10px] text-slate-400 font-mono mt-2">
-                                Invoice: {r.cartData?.invoiceNumber || 'N/A'} · Cart ID: {r.cartData?.orderId || r.id}
                               </div>
                             </div>
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-slate-700 truncate" title={reportedIssue}>
+                              {reportedIssue}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+                            <span
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${
+                                isFixed
+                                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                  : 'bg-amber-50 text-amber-800 border-amber-200'
+                              }`}
+                            >
+                              {isFixed ? 'Fixed' : 'Open Issue'}
+                            </span>
 
                             <button
                               type="button"
-                              onClick={() => onOpenCartModal(r)}
-                              className="w-full py-2 px-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+                              onClick={() => (isFixed ? onOpenCartModal(r) : handleOpenFixProblem(r))}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors cursor-pointer whitespace-nowrap ${
+                                isFixed
+                                  ? 'bg-slate-100 hover:bg-slate-200 text-slate-800'
+                                  : 'bg-slate-900 hover:bg-slate-800 text-white'
+                              }`}
                             >
-                              <ShoppingBag className="w-3.5 h-3.5 text-emerald-400" />
-                              <span>Open Verified Cart →</span>
+                              {isFixed ? 'View Order' : 'Fix Issue'}
                             </button>
                           </div>
-                        );
-                      })}
-                    </div>
+                        </div>
+                      );
+                    })
                   )}
                 </div>
               )}

@@ -45,6 +45,7 @@ interface VideoModalProps {
   onOpenChatGPTWithSummary?: (item: FeedbackItem, customPrompt?: string) => void;
   user?: UserProfile;
   activePlan?: SubscriptionTier;
+  isCompanyContext?: boolean;
   onOpenSubscriptionModal?: (brand?: string) => void;
 }
 
@@ -73,6 +74,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   onOpenChatGPTWithSummary,
   user,
   activePlan,
+  isCompanyContext = false,
   onOpenSubscriptionModal,
 }) => {
   const [currentFeedback, setCurrentFeedback] = useState<FeedbackItem | null>(feedback);
@@ -330,7 +332,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
   if (!currentFeedback || !phone) return null;
 
   const isCompanyLocked = Boolean(
-    user?.accountMode === 'company' &&
+    isCompanyContext &&
       user?.role !== 'company_admin' &&
       !isFeedbackItemUnlocked(currentFeedback, user, activePlan)
   );
@@ -1036,6 +1038,7 @@ export const VideoModal: React.FC<VideoModalProps> = ({
                 <video
                   ref={videoElRef}
                   src={currentFeedback.videoUrl}
+                  muted={isMuted}
                   playsInline
                   autoPlay
                   preload="metadata"

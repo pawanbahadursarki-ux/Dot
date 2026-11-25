@@ -1,7 +1,13 @@
 import React from 'react';
-import { 
-  Smartphone, Building2, ShieldCheck, Wallet, Maximize2, Minimize2, 
-  Type, LogIn, Sparkles, BarChart3, Users, Lock, LogOut
+import {
+  Smartphone,
+  ShieldCheck,
+  Wallet,
+  Maximize2,
+  Minimize2,
+  Type,
+  LogIn,
+  BarChart3,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { DotLogo } from './DotLogo';
@@ -28,20 +34,17 @@ export interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({
   currentView,
-  currentScreen = 'home',
   onSwitchView,
   onNavigateScreen,
   onNavigate,
   user,
   onOpenAuth,
-  onLogout,
   deviceFrameMode,
   onToggleDeviceFrame,
   textSize,
   onCycleTextSize,
   isAdminUnlocked = false,
 }) => {
-  // Unified navigation helper
   const handleJump = (targetView: 'customer' | 'company' | 'login' | 'admin', targetScreen?: string) => {
     if (onNavigate) {
       onNavigate({ view: targetView, screen: targetScreen });
@@ -53,173 +56,160 @@ export const Header: React.FC<HeaderProps> = ({
     }
   };
 
+  // Before login: do not display Users / Company / Admin bar at top on Login screen
+  if (!user?.isLoggedIn && currentView !== 'admin') {
+    return null;
+  }
+
+  // Before login on Admin gate: show only minimal brand + back to Sign In
+  if (!user?.isLoggedIn && currentView === 'admin') {
+    return (
+      <header className="sticky top-0 z-40 bg-slate-950/95 backdrop-blur-md border-b border-slate-800">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 h-12 sm:h-13 flex items-center justify-between gap-2">
+          <div
+            onClick={() => handleJump('login')}
+            className="flex items-center gap-2 cursor-pointer shrink-0 select-none"
+            title="Dot Platform"
+          >
+            <DotLogo size="md" variant="gradient" />
+            <span className="font-black text-white text-sm sm:text-base leading-none tracking-tight whitespace-nowrap">
+              Dot
+            </span>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => handleJump('login')}
+            className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <LogIn className="w-3.5 h-3.5 shrink-0" />
+            <span>Back to Sign In</span>
+          </button>
+        </div>
+      </header>
+    );
+  }
+
   const isCompany = currentView === 'company';
   const isCustomer = currentView === 'customer';
   const isAdmin = currentView === 'admin';
 
-  const isAdminUser = Boolean(isAdminUnlocked || user?.role === 'company_admin');
-  const lockedMode = user?.isLoggedIn && !isAdminUser ? user.accountMode : undefined;
-  const canAccessCompany = !lockedMode || lockedMode === 'company';
-  const canAccessCustomer = !lockedMode || lockedMode === 'customer';
-  const canAccessAdmin = !user?.isLoggedIn || isAdminUser;
-
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90 shadow-2xs">
-      
-      {/* =========================================================
-          MAIN CLEAN NAV BAR (SINGLE ROW - SLEEK & SIMPLE)
-          ========================================================= */}
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 flex items-center justify-between gap-3">
-        
-        {/* Left: Brand Identity */}
-        <div 
-          onClick={() => handleJump(lockedMode === 'customer' ? 'customer' : 'company')}
-          className="flex items-center gap-2.5 cursor-pointer shrink-0 select-none group"
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200/90">
+      <div className="max-w-7xl mx-auto px-2.5 sm:px-6 h-12 sm:h-13 flex items-center justify-between gap-1.5 sm:gap-3">
+        {/* Brand Identity */}
+        <div
+          onClick={() => handleJump('company')}
+          className="flex items-center gap-1.5 sm:gap-2 cursor-pointer shrink-0 select-none group"
           title="Dot Platform"
         >
-          <DotLogo size="md" variant="gradient" className="group-hover:scale-105 transition-transform" />
-          <div className="flex flex-col">
-            <span className="font-black text-slate-900 text-sm sm:text-base leading-none tracking-tight">
-              Dot
-            </span>
-            <span className="text-[10px] text-slate-400 font-medium">
-              SaaS Video Insights
-            </span>
-          </div>
+          <DotLogo size="sm" variant="gradient" className="group-hover:scale-105 transition-transform sm:scale-110" />
+          <span className="font-black text-slate-900 text-sm sm:text-base leading-none tracking-tight whitespace-nowrap">
+            Dot
+          </span>
         </div>
 
-        {/* Center: Clean Segmented Mode Switcher (Strictly enforces 1 Gmail = 1 Portal Access) */}
-        <nav className="flex items-center p-1 bg-slate-100 rounded-2xl border border-slate-200/80 shadow-inner gap-1">
-          
-          {/* 1. Company Dashboard */}
-          {canAccessCompany && (
-            <button
-              type="button"
-              onClick={() => handleJump('company')}
-              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                isCompany
-                  ? 'bg-slate-900 text-white shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-              title="Company Dashboard: Board SaaS chart, AI cart, and video reviews"
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-indigo-400" />
-              <span>Company Dashboard</span>
-            </button>
-          )}
+        {/* Center: One-Tap Role Switcher (Users / Company, plus Admin ONLY when authenticated as admin) */}
+        <nav
+          aria-label="Workspace mode"
+          className="flex items-center p-0.5 bg-slate-100 rounded-xl border border-slate-200/80 gap-0.5 min-w-0 overflow-x-auto no-scrollbar"
+        >
+          <button
+            type="button"
+            onClick={() => handleJump('customer', 'home')}
+            className={`px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+              isCustomer
+                ? 'bg-blue-600 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            }`}
+            title="Users & Consumer App"
+          >
+            <Smartphone className={`hidden sm:block w-3.5 h-3.5 shrink-0 ${isCustomer ? 'text-blue-200' : 'text-blue-500'}`} />
+            <span>Users</span>
+          </button>
 
-          {/* 2. Consumer App */}
-          {canAccessCustomer && (
-            <button
-              type="button"
-              onClick={() => handleJump('customer', 'home')}
-              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                isCustomer
-                  ? 'bg-blue-600 text-white shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-              }`}
-              title="Consumer App: Pick phone, record video, and earn rewards"
-            >
-              <Smartphone className="w-3.5 h-3.5 text-blue-300" />
-              <span>Consumer App</span>
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => handleJump('company')}
+            className={`px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
+              isCompany
+                ? 'bg-slate-900 text-white shadow-2xs'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
+            }`}
+            title="Company Dashboard"
+          >
+            <BarChart3 className={`hidden sm:block w-3.5 h-3.5 shrink-0 ${isCompany ? 'text-indigo-300' : 'text-indigo-500'}`} />
+            <span>Company</span>
+          </button>
 
-          {/* 3. User Provisions & Admin */}
-          {canAccessAdmin && (
+          {isAdminUnlocked && (
             <button
               type="button"
               onClick={() => handleJump('admin')}
-              className={`px-3 sm:px-4 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-2 sm:px-3.5 py-1.5 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                 isAdmin
-                  ? 'bg-amber-500 text-slate-950 shadow-sm font-black'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
+                  ? 'bg-amber-500 text-slate-950 shadow-2xs'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/80'
               }`}
-              title="Admin & User Provisions: User directory, moderation, payouts"
+              title="Admin Console"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-amber-500" />
-              <span className="hidden sm:inline">User Provisions & Admin</span>
-              <span className="sm:hidden">Provisions</span>
+              <ShieldCheck className={`hidden sm:block w-3.5 h-3.5 shrink-0 ${isAdmin ? 'text-slate-950' : 'text-amber-500'}`} />
+              <span>Admin</span>
             </button>
           )}
-
-          {/* Single-account lock indicator + Switch Gmail option */}
-          {lockedMode && (
-            <div className="hidden md:flex items-center gap-1.5 pl-2 pr-1 text-[10px] font-mono font-bold text-slate-600">
-              <Lock className="w-3 h-3 text-slate-500" />
-              <span>1 Gmail = {lockedMode === 'company' ? 'Company Only' : 'Customer Only'}</span>
-              {onLogout && (
-                <button
-                  type="button"
-                  onClick={onLogout}
-                  className="ml-1 px-2 py-0.5 rounded-lg bg-white hover:bg-rose-50 text-slate-700 hover:text-rose-700 border border-slate-200 transition-colors cursor-pointer flex items-center gap-1"
-                  title="Sign out to switch to a different Google account"
-                >
-                  <LogOut className="w-2.5 h-2.5" />
-                  <span>Switch</span>
-                </button>
-              )}
-            </div>
-          )}
-
         </nav>
 
-        {/* Right: Quick Controls & Profile */}
-        <div className="flex items-center gap-2 shrink-0">
-          
-          {/* Text size button for accessibility */}
+        {/* Right: Quick Controls & Compact Wallet + User Badge */}
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           <button
             type="button"
             onClick={onCycleTextSize}
-            className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+            className="hidden md:flex p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-[11px] items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
             title={`Text size: ${textSize}`}
           >
-            <Type className="w-3.5 h-3.5 text-slate-500" />
+            <Type className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span className="hidden lg:inline">{textSize}</span>
           </button>
 
-          {/* Frame toggle for consumer app */}
           {isCustomer && (
             <button
               type="button"
               onClick={onToggleDeviceFrame}
-              className="p-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-bold text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
+              className="hidden md:flex p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-[11px] items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
               title={deviceFrameMode ? 'Switch to Full Width' : 'Switch to Phone Simulator'}
             >
-              {deviceFrameMode ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+              {deviceFrameMode ? <Maximize2 className="w-3.5 h-3.5 shrink-0" /> : <Minimize2 className="w-3.5 h-3.5 shrink-0" />}
               <span className="hidden lg:inline">{deviceFrameMode ? 'Phone' : 'Full'}</span>
             </button>
           )}
 
-          {/* Balance badge (customer-accessible only) */}
-          {user?.isLoggedIn && canAccessCustomer && (
+          {user?.isLoggedIn && (
             <button
               type="button"
               onClick={() => handleJump('customer', 'wallet')}
-              className="px-2.5 py-1 rounded-xl bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-2 sm:px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-800 text-[11px] sm:text-xs font-bold font-mono tabular-nums transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap shrink-0"
               title="Wallet Balance"
             >
-              <Wallet className="w-3.5 h-3.5 text-emerald-600" />
+              <Wallet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>Rs. {(user?.walletBalance ?? 0).toLocaleString('en-IN')}</span>
             </button>
           )}
 
-          {/* User profile / login avatar */}
           {user?.isLoggedIn ? (
             <button
               type="button"
               onClick={onOpenAuth}
-              className="flex items-center gap-1.5 p-1 rounded-xl hover:bg-slate-100 border border-transparent hover:border-slate-200 cursor-pointer transition-colors"
+              className="flex items-center gap-1.5 p-0.5 rounded-lg hover:bg-slate-100 border border-transparent hover:border-slate-200 cursor-pointer transition-colors shrink-0"
               title="Account Settings"
             >
               {user?.avatar ? (
                 <img src={user.avatar} alt={user?.name || 'User'} className="w-7 h-7 rounded-lg object-cover" />
               ) : (
                 <div className="w-7 h-7 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold text-xs">
-                  {(user?.name || 'Pawan').charAt(0)}
+                  {(user?.name || 'U').charAt(0).toUpperCase()}
                 </div>
               )}
-              <span className="hidden xl:inline text-xs font-bold text-slate-800 max-w-[80px] truncate">
+              <span className="hidden xl:inline text-xs font-bold text-slate-800 max-w-[80px] truncate pr-1">
                 {(user?.name || 'User').split(' ')[0]}
               </span>
             </button>
@@ -227,17 +217,15 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               type="button"
               onClick={() => handleJump('login')}
-              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-black shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+              className="px-2.5 sm:px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap shrink-0"
             >
-              <LogIn className="w-3.5 h-3.5" />
+              <LogIn className="w-3.5 h-3.5 shrink-0" />
               <span>Sign In</span>
             </button>
           )}
-
         </div>
-
       </div>
-
     </header>
   );
 };
+

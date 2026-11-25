@@ -133,9 +133,7 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                     <span className="text-indigo-700 font-mono">
                       {user.role === 'company_admin'
                         ? 'Admin (All Portals)'
-                        : user.accountMode === 'company'
-                        ? 'Company Portal Only (1 Gmail = 1 Access)'
-                        : 'Customer App Only (1 Gmail = 1 Access)'}
+                        : 'Consumer & Company'}
                     </span>
                   </div>
                 </div>

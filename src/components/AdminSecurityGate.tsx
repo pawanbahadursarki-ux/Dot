@@ -140,7 +140,7 @@ export const AdminSecurityGate: React.FC<AdminSecurityGateProps> = ({
             className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
           >
             <Building2 className="w-3.5 h-3.5 text-slate-500" />
-            <span>← Return to Company Portal</span>
+            <span>← Return to Dashboard</span>
           </button>
         </div>
       </div>

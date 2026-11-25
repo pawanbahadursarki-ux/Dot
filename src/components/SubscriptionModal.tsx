@@ -76,6 +76,9 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
   const basicPrice = billingCycle === 'yearly' ? '11.99' : '15.99';
   const standardPrice = billingCycle === 'yearly' ? '19.99' : '25.99';
   const premiumPrice = billingCycle === 'yearly' ? '27.99' : '35.99';
+  const basicNPR = Math.round(Number(basicPrice) * 135).toLocaleString('en-IN');
+  const standardNPR = Math.round(Number(standardPrice) * 135).toLocaleString('en-IN');
+  const premiumNPR = Math.round(Number(premiumPrice) * 135).toLocaleString('en-IN');
 
   const handleOpenBuy = (tierId: 'basic' | 'standard' | 'premium') => {
     let targetPlan: SubscriptionTier;
@@ -248,9 +251,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     1 Brand Only
                   </span>
                 </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900">${basicPrice}</span>
+                <div className="flex items-baseline gap-1.5 mb-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900">NPR {basicNPR}</span>
                   <span className="text-xs text-slate-500 font-medium">/ month</span>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-500 mb-2">
+                  (${basicPrice} USD{billingCycle === 'yearly' ? ' · billed annually' : ''})
                 </div>
                 <p className="text-[11px] text-slate-600 mb-3">
                   Unlocks feedback strictly for <b>{currentBrandPassInfo.brandName}</b>.
@@ -299,9 +305,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     1 Brand Only
                   </span>
                 </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900">${standardPrice}</span>
+                <div className="flex items-baseline gap-1.5 mb-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900">NPR {standardNPR}</span>
                   <span className="text-xs text-slate-500 font-medium">/ month</span>
+                </div>
+                <div className="text-[11px] font-semibold text-indigo-600 mb-2">
+                  (${standardPrice} USD{billingCycle === 'yearly' ? ' · billed annually' : ''})
                 </div>
                 <p className="text-[11px] text-slate-600 mb-3">
                   High-volume intelligence strictly for <b>{currentBrandPassInfo.brandName}</b> models.
@@ -350,9 +359,12 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
                     1 Brand Unlimited
                   </span>
                 </div>
-                <div className="flex items-baseline gap-1 mb-1">
-                  <span className="text-2xl sm:text-3xl font-black text-slate-900">${premiumPrice}</span>
+                <div className="flex items-baseline gap-1.5 mb-0.5">
+                  <span className="text-2xl sm:text-3xl font-black text-slate-900">NPR {premiumNPR}</span>
                   <span className="text-xs text-slate-500 font-medium">/ month</span>
+                </div>
+                <div className="text-[11px] font-semibold text-slate-500 mb-2">
+                  (${premiumPrice} USD{billingCycle === 'yearly' ? ' · billed annually' : ''})
                 </div>
                 <p className="text-[11px] text-slate-600 mb-3">
                   Unlimited video quota for <b>{currentBrandPassInfo.brandName}</b> models only.
@@ -458,7 +470,7 @@ export const SubscriptionModal: React.FC<SubscriptionModalProps> = ({
           {/* Simple Trust Footer */}
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-center text-[11px] text-slate-500 gap-1.5">
             <Shield className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-            <span>Secure Khalti QR, bank & card payments. Manual Khalti QR orders activate after Admin confirmation.</span>
+            <span>Pay easily via Khalti, eSewa, Fonepay QR, bank wire, or card. Manual QR orders activate after Admin verification.</span>
           </div>
 
         </div>

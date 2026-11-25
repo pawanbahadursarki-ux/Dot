@@ -339,6 +339,7 @@ app.get('/api/payments/khalti/config-status', requireFirebaseUser, (req: AuthedR
       enabled: Boolean(khaltiLedger.qrSettings.enabled),
       qrImagePath: khaltiLedger.qrSettings.qrImagePath,
       accountHolderName: khaltiLedger.qrSettings.accountHolderName,
+      khaltiNumber: khaltiLedger.qrSettings.khaltiNumber || '',
       stage1Notice: khaltiLedger.qrSettings.stage1Notice,
       updatedBy: khaltiLedger.qrSettings.updatedBy,
       updatedAt: khaltiLedger.qrSettings.updatedAt,
@@ -346,16 +347,16 @@ app.get('/api/payments/khalti/config-status', requireFirebaseUser, (req: AuthedR
   });
 });
 
-// 2. Admin-only: Update Manual Khalti QR Settings (display name, QR image path, notice, toggle)
+// 2. Admin-only: Update Manual Khalti QR Settings (display name, optional Khalti ID, QR image path, notice, toggle)
 app.post('/api/payments/khalti/qr-settings', requireFirebaseAdmin, (req: AuthedRequest, res) => {
   try {
-    const { enabled, qrImagePath, accountHolderName, stage1Notice } = req.body || {};
+    const { enabled, qrImagePath, accountHolderName, khaltiNumber, stage1Notice } = req.body || {};
 
     khaltiLedger.qrSettings = {
       enabled: typeof enabled === 'boolean' ? enabled : khaltiLedger.qrSettings.enabled,
       qrImagePath: String(qrImagePath || khaltiLedger.qrSettings.qrImagePath).trim().slice(0, 500),
       accountHolderName: String(accountHolderName || khaltiLedger.qrSettings.accountHolderName).trim().slice(0, 120),
-      khaltiNumber: '',
+      khaltiNumber: String(khaltiNumber ?? khaltiLedger.qrSettings.khaltiNumber ?? '').trim().slice(0, 30),
       stage1Notice: String(stage1Notice ?? khaltiLedger.qrSettings.stage1Notice).trim().slice(0, 400),
       updatedBy: req.firebaseUser?.email || BOOTSTRAPPED_ADMIN_EMAIL,
       updatedAt: new Date().toISOString(),
@@ -460,6 +461,7 @@ app.post('/api/payments/stage1/submit', requireFirebaseUser, (req: AuthedRequest
       expectedAmountNPR,
       submittedAmountNPR,
       transactionReference,
+      paidVia,
       screenshotUrl,
     } = req.body || {};
 
@@ -469,6 +471,7 @@ app.post('/api/payments/stage1/submit', requireFirebaseUser, (req: AuthedRequest
 
     const cleanOrderId = String(orderId || `ord_qr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`).trim();
     const cleanPurchaseOrderId = String(purchaseOrderId || `FP-QR-${Date.now()}`).trim();
+    const cleanPaidVia = String(paidVia || 'Khalti Wallet').trim().slice(0, 120) || 'Khalti Wallet';
     const cleanTxnRef = String(transactionReference || '').trim();
     const expectedNPR = Math.round(Number(expectedAmountNPR || 0));
     const paidNPR = submittedAmountNPR !== undefined && submittedAmountNPR !== null
@@ -486,17 +489,25 @@ app.post('/api/payments/stage1/submit', requireFirebaseUser, (req: AuthedRequest
       });
     }
 
-    if (!/^\d+$/.test(cleanTxnRef)) {
+    const normalizedPaidVia = cleanPaidVia.toLowerCase();
+    const isKhaltiMethod = normalizedPaidVia === 'khalti' || normalizedPaidVia === 'khalti wallet';
+    if (isKhaltiMethod) {
+      if (!/^\d+$/.test(cleanTxnRef)) {
+        return res.status(400).json({
+          code: 'INVALID_REFERENCE',
+          error: 'Khalti Transaction ID must follow numeric format (digits 0-9 only, no letters or spaces).',
+        });
+      }
+      if (cleanTxnRef.length < 6 || cleanTxnRef.length > 20) {
+        return res.status(400).json({
+          code: 'INVALID_REFERENCE',
+          error: 'Khalti Transaction ID must be a 6 to 20 digit numeric ID.',
+        });
+      }
+    } else if (!/^[A-Za-z0-9_-]{6,24}$/.test(cleanTxnRef)) {
       return res.status(400).json({
         code: 'INVALID_REFERENCE',
-        error: 'Khalti Transaction ID must follow numeric format (digits 0-9 only, no letters or spaces).',
-      });
-    }
-
-    if (cleanTxnRef.length < 6 || cleanTxnRef.length > 20) {
-      return res.status(400).json({
-        code: 'INVALID_REFERENCE',
-        error: 'Khalti Transaction ID must be a 6 to 20 digit numeric ID.',
+        error: 'Transaction reference must be 6 to 24 characters (letters, digits, - or _).',
       });
     }
 
@@ -515,11 +526,14 @@ app.post('/api/payments/stage1/submit', requireFirebaseUser, (req: AuthedRequest
       '9876543',
       '98765432',
       '987654321',
+      'TESTING',
+      'SAMPLE',
+      'TXN123456',
     ]);
-    if (dummySet.has(cleanTxnRef) || /^(\d)\1+$/.test(cleanTxnRef)) {
+    if (dummySet.has(cleanTxnRef.toUpperCase()) || /^(.)\1+$/.test(cleanTxnRef)) {
       return res.status(400).json({
         code: 'INVALID_REFERENCE',
-        error: 'Placeholder or sequential dummy numbers are rejected. Enter your real numeric Khalti Transaction ID.',
+        error: 'Placeholder or sequential dummy numbers are rejected. Enter your real Transaction ID.',
       });
     }
 
@@ -569,7 +583,9 @@ app.post('/api/payments/stage1/submit', requireFirebaseUser, (req: AuthedRequest
       stage: 'stage1_manual_qr',
       paymentMethod: 'khalti_qr',
       status: 'pending',
+      ...(khaltiLedger.qrSettings.khaltiNumber ? { receiverKhaltiNumber: khaltiLedger.qrSettings.khaltiNumber } : {}),
       receiverAccountName: khaltiLedger.qrSettings.accountHolderName,
+      payerAccountOrBank: cleanPaidVia,
       submittedAmountNPR: paidNPR,
       transactionReference: cleanTxnRef.slice(0, 120),
       ...(safeScreenshotUrl ? { screenshotUrl: safeScreenshotUrl } : {}),

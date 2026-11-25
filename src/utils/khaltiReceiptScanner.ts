@@ -110,6 +110,43 @@ export function validateKhaltiNumericTxnId(txnId: string): KhaltiTxnValidationRe
   };
 }
 
+export function validatePaymentTxnReference(txnId: string, paidVia?: string): KhaltiTxnValidationResult {
+  const via = (paidVia || '').trim().toLowerCase();
+  const isStrictKhalti =
+    !via ||
+    via === 'khalti' ||
+    via === 'khalti wallet';
+  if (isStrictKhalti) {
+    return validateKhaltiNumericTxnId(txnId);
+  }
+  const trimmed = txnId.trim();
+  if (!trimmed) {
+    return {
+      valid: false,
+      normalized: '',
+      reason: 'Enter your Transaction Code / Reference ID from your payment receipt.',
+    };
+  }
+  if (!/^[A-Za-z0-9_-]{6,24}$/.test(trimmed)) {
+    return {
+      valid: false,
+      normalized: trimmed,
+      reason: 'Transaction reference must be 6–24 characters (letters, digits, - or _ only).',
+    };
+  }
+  if (isPlaceholderTxnId(trimmed)) {
+    return {
+      valid: false,
+      normalized: trimmed,
+      reason: 'Placeholder or sequential reference rejected. Enter your real Transaction ID.',
+    };
+  }
+  return {
+    valid: true,
+    normalized: trimmed,
+  };
+}
+
 async function preprocessImageForOcr(file: File): Promise<HTMLCanvasElement> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -542,7 +579,22 @@ export async function scanKhaltiReceiptScreenshot(
   const extractedTxnId = qrExtractedTxnId || ocrCandidates[0] || null;
   const extractedAmountNPR = extractAmountNPR(rawText, options?.expectedAmountNPR) ?? qrAmountNPR;
 
-  const khaltiCueWords = ['KHALTI', 'IME', 'TRANSACTION', 'PAYMENT', 'PAID', 'SUCCESS', 'NPR', 'RS', 'RECEIPT', 'AMOUNT'];
+  const khaltiCueWords = [
+    'KHALTI',
+    'ESEWA',
+    'FONEPAY',
+    'CONNECTIPS',
+    'IME',
+    'TRANSACTION',
+    'PAYMENT',
+    'PAID',
+    'SUCCESS',
+    'TRANSFER',
+    'NPR',
+    'RS',
+    'RECEIPT',
+    'AMOUNT',
+  ];
   const cueHits = khaltiCueWords.filter((w) => normalizedUpper.includes(w));
   const isKhaltiReceipt =
     cueHits.length >= 2 ||
