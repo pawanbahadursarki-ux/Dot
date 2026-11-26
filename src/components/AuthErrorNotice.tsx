@@ -10,6 +10,7 @@ interface AuthErrorNoticeProps {
   variant?: 'light' | 'dark';
   className?: string;
   onDomainAuthorized?: () => void;
+  onUseGoogleSignIn?: () => void;
 }
 
 export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
@@ -17,19 +18,26 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
   variant = 'light',
   className = '',
   onDomainAuthorized,
+  onUseGoogleSignIn,
 }) => {
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState(false);
   const [domainStatus, setDomainStatus] = useState<AuthorizedDomainsStatus | null>(null);
 
+  const safeMessage = (message || '').trim() || 'Authentication could not be completed. Please try again.';
+
   const isUnauthorizedDomain =
-    /unauthorized-domain|not yet authorized in Firebase Authentication|Authorized domains/i.test(message);
+    /unauthorized-domain|not yet authorized in Firebase Authentication|Authorized domains/i.test(safeMessage);
 
   const isProviderDisabled =
-    /Email\/Password sign-in is not yet enabled|operation-not-allowed/i.test(message);
+    /Email\/Password sign-in is not yet enabled|operation-not-allowed|admin-restricted-operation|PASSWORD_LOGIN_DISABLED|ADMIN_ONLY_OPERATION/i.test(safeMessage);
+
+  const isPopupBlocked =
+    /popup was blocked|auth\/popup-blocked|cancelled-popup-request|embedded preview|restricts Google popups/i.test(safeMessage);
 
   const currentHost =
     (typeof window !== 'undefined' && window.location.hostname) || 'pawanbahadursarki-ux.github.io';
+  const currentUrl = typeof window !== 'undefined' ? window.location.href : 'https://pawanbahadursarki-ux.github.io/Dot/';
 
   const runLiveCheck = async () => {
     setChecking(true);
@@ -62,6 +70,47 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
     }
   };
 
+  if (isPopupBlocked) {
+    return (
+      <div
+        className={`p-3 rounded-xl text-xs space-y-2.5 text-left ${
+          variant === 'dark'
+            ? 'bg-amber-950/80 border border-amber-500/40 text-amber-100'
+            : 'bg-amber-50 border border-amber-200 text-amber-950'
+        } ${className}`}
+      >
+        <div className="flex items-start gap-2 font-semibold">
+          <AlertCircle
+            className={`w-4 h-4 shrink-0 mt-0.5 ${variant === 'dark' ? 'text-amber-400' : 'text-amber-600'}`}
+          />
+          <span>{safeMessage}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <a
+            href={currentUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#0b3b75] hover:bg-[#082d5c] text-white transition-colors"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Open Dot in New Tab</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+          {onUseGoogleSignIn && (
+            <button
+              type="button"
+              onClick={onUseGoogleSignIn}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-white hover:bg-slate-100 text-slate-900 border border-slate-300 transition-colors cursor-pointer"
+            >
+              <RefreshCw className="w-3 h-3" />
+              <span>Retry Google Popup</span>
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (isProviderDisabled) {
     return (
       <div
@@ -78,19 +127,29 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
           <span>Email/Password sign-in is disabled in Firebase right now.</span>
         </div>
         <ol className={`list-decimal pl-5 space-y-1 text-[11px] leading-relaxed ${variant === 'dark' ? 'text-amber-200/90' : 'text-amber-900'}`}>
-          <li>Click <b>Open Firebase Sign-in Providers</b> below.</li>
-          <li>Select <b>Email/Password</b>, toggle <b>Enable</b>, and click <b>Save</b>.</li>
-          <li>Or tap <b>Continue with Google</b> above for instant verified Gmail sign-in right now.</li>
+          <li>Use <b>Continue with Google</b> to pick your Gmail account immediately (no password needed).</li>
+          <li>Or open <b>Firebase Sign-in Providers</b> below → select <b>Email/Password</b> → toggle <b>Enable</b> → click <b>Save</b>.</li>
         </ol>
-        <a
-          href="https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/providers"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors"
-        >
-          <span>Open Firebase Sign-in Providers</span>
-          <ExternalLink className="w-3 h-3" />
-        </a>
+        <div className="flex flex-wrap items-center gap-2">
+          {onUseGoogleSignIn && (
+            <button
+              type="button"
+              onClick={onUseGoogleSignIn}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-[#0b3b75] hover:bg-[#082d5c] text-white transition-colors cursor-pointer"
+            >
+              <span>Sign in with Google Account</span>
+            </button>
+          )}
+          <a
+            href="https://console.firebase.google.com/project/gen-lang-client-0580095840/authentication/providers"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white transition-colors"
+          >
+            <span>Open Firebase Sign-in Providers</span>
+            <ExternalLink className="w-3 h-3" />
+          </a>
+        </div>
       </div>
     );
   }
@@ -107,7 +166,7 @@ export const AuthErrorNotice: React.FC<AuthErrorNoticeProps> = ({
         <AlertCircle
           className={`w-4 h-4 shrink-0 mt-0.5 ${variant === 'dark' ? 'text-rose-400' : 'text-rose-600'}`}
         />
-        <span>{message}</span>
+        <span>{safeMessage}</span>
       </div>
     );
   }

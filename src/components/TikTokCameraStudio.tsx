@@ -490,7 +490,7 @@ export const TikTokCameraStudio: React.FC<TikTokCameraStudioProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full max-w-md mx-auto bg-black text-white sm:rounded-[44px] overflow-hidden shadow-2xl flex flex-col justify-between select-none">
+    <div className="relative w-full h-full min-h-[540px] max-w-3xl mx-auto bg-black text-white lg:rounded-2xl overflow-hidden shadow-2xl flex flex-col justify-between select-none">
       
       {/* =========================================================
           1. IMMERSIVE FULL-SCREEN CAMERA (FACE VIEW)

@@ -149,7 +149,6 @@ export default function App() {
   const [khaltiQrSettings, setKhaltiQrSettings] = useState<KhaltiQrSettings>(DEFAULT_KHALTI_QR_SETTINGS);
   const [registeredUsers, setRegisteredUsers] = useState<RegisteredUser[]>([]);
 
-  const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(true);
   const [textSize, setTextSize] = useState<string>('Normal');
 
   const [isGoogleAuthOpen, setIsGoogleAuthOpen] = useState(false);
@@ -211,18 +210,21 @@ export default function App() {
       if (active) setAuthReady(true);
     }, 2000);
 
-    // Handle returning from mobile signInWithRedirect seamlessly without racing auth listener
+    // Handle returning from mobile/standalone signInWithRedirect seamlessly without racing auth listener
     const redirectPromise = consumeGoogleRedirectAuth()
       .then(async (redirectRes) => {
         if (!redirectRes || !active) return null;
         await ensureUserDocsInFirestore(redirectRes.user, redirectRes.preferredMode || 'company');
         setPendingAuthAccountMode(null);
+        setAuthBannerError(null);
         setView(redirectRes.preferredMode || 'company');
         return redirectRes;
       })
       .catch((err: unknown) => {
         if (active) {
-          setAuthBannerError(formatFirestoreErrorMessage(err, 'Google sign-in redirect failed. Please try again.'));
+          setAuthBannerError(
+            formatFirestoreErrorMessage(err, 'Google sign-in redirect could not complete. Please click Continue with Google.')
+          );
         }
         return null;
       });
@@ -545,15 +547,13 @@ export default function App() {
         onOpenWallet={() => {
           handleNavigate({ view: 'customer', screen: 'wallet' });
         }}
-        deviceFrameMode={deviceFrameMode}
-        onToggleDeviceFrame={() => setDeviceFrameMode(!deviceFrameMode)}
         textSize={textSize}
         onCycleTextSize={cycleTextSize}
         onOpenSubscriptionModal={() => setIsSubscriptionOpen(true)}
         isAdminUnlocked={isAdminUnlocked}
       />
 
-      {authBannerError && (
+      {authBannerError && authBannerError.trim() && (user.isLoggedIn || view === 'admin') && (
         <div className="bg-slate-50 border-b border-slate-200 px-4 py-2.5">
           <div className="max-w-7xl mx-auto flex items-start justify-between gap-2">
             <AuthErrorNotice message={authBannerError} variant="light" className="flex-1" />
@@ -612,6 +612,8 @@ export default function App() {
           </Suspense>
         ) : !user.isLoggedIn || view === 'login' ? (
           <LoginScreen
+            initialAuthError={authBannerError}
+            onClearAuthError={() => setAuthBannerError(null)}
             onAuthenticated={handleAuthenticated}
             onSwitchView={(target) =>
               handleNavigate({ view: target, allowAdminEntry: target === 'admin' })
@@ -628,7 +630,6 @@ export default function App() {
                 transactions={transactions}
                 myVideosList={myFeedbackList}
                 feedbackList={feedbackList}
-                deviceFrameMode={deviceFrameMode}
                 onOpenGoogleAuth={() => setIsGoogleAuthOpen(true)}
                 onLogout={handleLogout}
                 onOpenVideoModal={openVideoModal}
@@ -647,7 +648,6 @@ export default function App() {
                 onNavigateView={(target) =>
                   handleNavigate({ view: target, allowAdminEntry: target === 'admin' })
                 }
-                onToggleLarge={() => setDeviceFrameMode(!deviceFrameMode)}
                 isAdminUnlocked={isAdminUnlocked}
               />
             ) : (

@@ -8,6 +8,7 @@ import {
   signInWithEmailAndPassword,
   sendEmailVerification,
   sendPasswordResetEmail,
+  confirmPasswordReset,
   applyActionCode,
   updateProfile,
   setPersistence,
@@ -273,17 +274,39 @@ export async function fetchAuthorizedFirebaseDomains(): Promise<AuthorizedDomain
 
 function formatGoogleAuthError(err: unknown): Error {
   const code = (err as { code?: string })?.code || '';
+  const rawMessage = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
   const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-  if (code === 'auth/unauthorized-domain') {
+  if (code === 'auth/unauthorized-domain' || /UNAUTHORIZED_DOMAIN/i.test(rawMessage)) {
     const targetHost = hostname || 'pawanbahadursarki-ux.github.io';
     return new Error(
       `This domain (${targetHost}) is not yet authorized in Firebase Authentication for project "${firebaseConfig.projectId}". Add "${targetHost}" under Firebase Console → Authentication → Settings → Authorized domains (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings).`
     );
   }
-  if (code === 'auth/operation-not-allowed') {
+  if (
+    code === 'auth/operation-not-allowed' ||
+    code === 'auth/admin-restricted-operation' ||
+    /OPERATION_NOT_ALLOWED|PASSWORD_LOGIN_DISABLED|ADMIN_ONLY_OPERATION/i.test(rawMessage)
+  ) {
     return new Error(
-      `Email/Password sign-in is not yet enabled in Firebase Console for project "${firebaseConfig.projectId}". Enable Email/Password under Firebase Console → Authentication → Sign-in method (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers), or use Sign in with Google below.`
+      `Email/Password sign-in is not yet enabled in Firebase Console for project "${firebaseConfig.projectId}". Enable Email/Password under Firebase Console → Authentication → Sign-in method (https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers), or use Continue with Google above.`
     );
+  }
+  if (code === 'auth/popup-blocked') {
+    const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
+    return new Error(
+      isInIframe
+        ? 'Google account popup was blocked inside the embedded preview. Open Dot in a full browser tab or allow popups to choose your Google account.'
+        : 'Google account popup was blocked by your browser. Please allow popups for this site and click Continue with Google again.'
+    );
+  }
+  if (code === 'auth/cancelled-popup-request') {
+    return new Error('A Google sign-in window is already open or was interrupted. Please click Continue with Google once.');
+  }
+  if (code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/web-storage-unsupported') {
+    return new Error('This browser view restricts Google popups. Open Dot in a full browser tab (Chrome/Safari) to choose your Google account.');
+  }
+  if (code === 'auth/account-exists-with-different-credential') {
+    return new Error('An account already exists with this Gmail under a different sign-in method. Please sign in with Google.');
   }
   if (code === 'auth/email-already-in-use') {
     return new Error('An account with this Gmail already exists. Switch to Sign in or use Forgot Password.');
@@ -303,19 +326,39 @@ function formatGoogleAuthError(err: unknown): Error {
   if (code === 'auth/expired-action-code' || code === 'auth/invalid-action-code') {
     return new Error('This verification code is invalid or expired. Click Resend Verification Email to get a fresh one.');
   }
-  if (code === 'auth/popup-closed-by-user') {
-    return new Error('Google Sign-In window was closed before completing sign-in.');
+  if (code === 'auth/internal-error' || code === 'auth/invalid-api-key' || code === 'auth/app-not-authorized') {
+    return new Error(
+      `Firebase Google Sign-In could not initialize on this domain (${hostname || 'current host'}). Ensure this domain is added in Firebase Console → Authentication → Settings → Authorized domains.`
+    );
   }
-  if (code === 'auth/network-request-failed') {
+  if (code === 'auth/user-disabled') {
+    return new Error('This account has been disabled. Contact support or try another Google account.');
+  }
+  if (code === 'auth/missing-email') {
+    return new Error('Please enter your Gmail address before continuing.');
+  }
+  if (code === 'auth/redirect-cancelled-by-user' || code === 'auth/popup-closed-by-user') {
+    return new Error('Google Sign-In window was closed before choosing a Google account.');
+  }
+  if (code === 'auth/redirect-operation-pending') {
+    return new Error('Google Sign-In is already finishing in the background. Please wait a moment and try again.');
+  }
+  if (code === 'auth/network-request-failed' || code === 'auth/timeout') {
     return new Error('Network error while connecting to Google Sign-In. Check your internet connection and try again.');
   }
-  if (err instanceof Error) return err;
-  return new Error('Sign-in failed. Please try again.');
+  if (rawMessage.trim() && !/^Firebase:\s*Error\s*\(\s*\)\.?$/i.test(rawMessage.trim())) {
+    return err instanceof Error ? err : new Error(rawMessage.trim());
+  }
+  return new Error(code ? `Authentication failed (${code}). Please try again.` : 'Sign-in failed. Please try again.');
 }
 
-export async function signInWithGooglePopup(rememberMe = true): Promise<User> {
+export function syncAuthPersistence(rememberMe: boolean): void {
+  setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence).catch(() => {});
+}
+
+export async function signInWithGooglePopup(_rememberMe = true): Promise<User> {
   try {
-    await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence).catch(() => {});
+    // Call signInWithPopup immediately without awaiting setPersistence first so browsers preserve the trusted user click gesture
     const cred = await signInWithPopup(auth, googleProvider);
     if (!cred.user.emailVerified) {
       throw new Error('Google email verification is required to access dot.');
@@ -323,14 +366,15 @@ export async function signInWithGooglePopup(rememberMe = true): Promise<User> {
     return cred.user;
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code || '';
-    const shouldFallbackToRedirect =
-      code === 'auth/popup-blocked' ||
-      code === 'auth/operation-not-supported-in-this-environment';
+    const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
 
-    if (shouldFallbackToRedirect) {
+    // On standalone mobile/desktop tabs (not inside an iframe), fall back to redirect if popup is blocked or unsupported
+    if (
+      !isInIframe &&
+      (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment')
+    ) {
       try {
         await signInWithRedirect(auth, googleProvider);
-        // Browser will navigate away to Google Sign-In; keep pending until redirect returns
         return await new Promise<User>(() => {});
       } catch (redirectErr: unknown) {
         throw formatGoogleAuthError(redirectErr);
@@ -356,7 +400,11 @@ export async function consumeGoogleRedirectAuth(): Promise<{
     return { user: result.user, preferredMode };
   } catch (err: unknown) {
     const code = (err as { code?: string })?.code || '';
-    if (code === 'auth/no-auth-event' || code === 'auth/null-user') {
+    if (
+      code === 'auth/no-auth-event' ||
+      code === 'auth/null-user' ||
+      code === 'auth/redirect-cancelled-by-user'
+    ) {
       return null;
     }
     setPendingAuthAccountMode(null);
@@ -470,6 +518,18 @@ export async function verifyGmailCodeOrRefreshStatus(rawCodeOrUrl?: string): Pro
 export async function sendPasswordResetForEmail(email: string): Promise<void> {
   try {
     await sendPasswordResetEmail(auth, email.trim(), buildVerificationActionSettings());
+  } catch (err: unknown) {
+    throw formatGoogleAuthError(err);
+  }
+}
+
+export async function confirmPasswordResetWithCode(rawCodeOrUrl: string, newPassword: string): Promise<void> {
+  try {
+    const cleanCode = extractOobCodeFromInput(rawCodeOrUrl);
+    if (!cleanCode) {
+      throw new Error('Please paste the reset code or link sent to your Gmail.');
+    }
+    await confirmPasswordReset(auth, cleanCode, newPassword);
   } catch (err: unknown) {
     throw formatGoogleAuthError(err);
   }

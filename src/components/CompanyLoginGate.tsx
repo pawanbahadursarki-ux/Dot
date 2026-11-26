@@ -58,7 +58,14 @@ export const CompanyLoginGate: React.FC<CompanyLoginGateProps> = ({
           </p>
         </div>
 
-        {error && <AuthErrorNotice message={error} variant="dark" className="mb-4" />}
+        {error && (
+          <AuthErrorNotice
+            message={error}
+            variant="dark"
+            className="mb-4"
+            onUseGoogleSignIn={handleGoogleSignIn}
+          />
+        )}
         {success && (
           <div className="mb-4 p-3 rounded-xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />

@@ -9,7 +9,7 @@ import {
   Volume2, VolumeX, Languages, Image as ImageIcon,
   PhoneCall, Sun, Grid, Bot, MessageSquare, Mic, MicOff, Send, Loader2, Volume1, Upload, Square,
   Trophy, Award, Folder, ChevronDown, Palette, Wand2, Sliders, Zap, ZapOff, Music, Disc, Cpu, Battery, Radio,
-  Shield, FileText, CheckSquare, Timer, Clock, Gift, Maximize2, BarChart3, Home, Bell
+  Shield, FileText, CheckSquare, Timer, Clock, Gift, BarChart3, Home, Bell
 } from 'lucide-react';
 import { triggerConfetti } from '../utils/confettiEffect';
 import { PhoneProduct, ProductCategory, FeedbackItem, UserProfile, WithdrawalTransaction, Gateway, RegisteredUser, MobileQuestion, SubscriptionTier } from '../types';
@@ -41,7 +41,6 @@ interface ConsumerViewProps {
   transactions?: WithdrawalTransaction[];
   myVideosList?: FeedbackItem[];
   feedbackList?: FeedbackItem[];
-  deviceFrameMode: boolean;
   onOpenGoogleAuth: (mode?: 'login' | 'register' | 'profile') => void;
   onOpenVideoModal: (review: FeedbackItem, initialTab?: 'summary' | 'transcript' | 'ai_summary') => void;
   textSize: string;
@@ -57,7 +56,6 @@ interface ConsumerViewProps {
   currentScreen?: string;
   onNavigateScreen?: (screen: string) => void;
   onNavigateView?: (view: 'customer' | 'company' | 'login' | 'admin' | 'dual') => void;
-  onToggleLarge?: () => void;
   isAdminUnlocked?: boolean;
 }
 
@@ -69,7 +67,6 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   transactions = [],
   myVideosList = [],
   feedbackList = [],
-  deviceFrameMode,
   onOpenGoogleAuth,
   onOpenVideoModal,
   textSize,
@@ -85,7 +82,6 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   currentScreen,
   onNavigateScreen,
   onNavigateView,
-  onToggleLarge,
   isAdminUnlocked = false,
 }) => {
   const [internalScreen, setInternalScreen] = useState<string>(initialScreen);
@@ -341,7 +337,6 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
     ['profile', '11', 'Me / settings'],
   ];
 
-  const DARK_SCREENS = ['welcome', 'record', 'success'];
   const NO_TABS = ['welcome', 'record', 'review', 'success', 'withdraw', 'detail'];
 
   const go = (s: string) => {
@@ -353,20 +348,12 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   };
 
   const currentPhone = phoneById(selectedPhoneId) || PHONES[0];
-  const isDark = DARK_SCREENS.includes(screen);
-  const statusBg = screen === 'welcome' 
-    ? 'var(--ink)' 
-    : screen === 'record' 
-      ? '#0E0E10' 
-      : screen === 'success' 
-        ? 'var(--money)' 
-        : 'var(--paper)';
 
   // Helper topbar
   const TopBar = ({ title, onBack, right }: { title: string; onBack?: () => void; right?: React.ReactNode }) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 16px 10px', minHeight: 52 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 0', minHeight: 54 }} className="w-full max-w-4xl mx-auto px-4 sm:px-6">
       {onBack && (
-        <button className="fp-iconbtn" onClick={onBack} aria-label="Go back">
+        <button className="fp-iconbtn shrink-0" onClick={onBack} aria-label="Go back">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 19l-7-7 7-7" />
           </svg>
@@ -416,12 +403,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
 
     return (
       <div
-        style={{
-          display: 'flex',
-          borderTop: '1px solid var(--line)',
-          background: '#fff',
-          padding: '4px 6px 3px',
-        }}
+        className="flex border-t border-[var(--line)] bg-white px-1.5 pt-1 pb-[calc(6px+env(safe-area-inset-bottom))]"
       >
         {tabs.map((t) => {
           const isActive = active === t.id;
@@ -558,203 +540,204 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   }, []);
 
   const renderHome = () => (
-    <div className="fp-screen fp-scroll">
-      <div style={{ padding: '6px 16px 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-        <div className="min-w-0">
-          <div style={{ color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))', lineHeight: 1.1 }}>Namaste,</div>
-          <div className="truncate" style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'calc(22px * var(--fs))', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
-            {(user?.name || 'Reviewer').split(' ')[0]} 👋
-          </div>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowConsumerNotifDrawer((prev) => !prev);
-              setConsumerAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
-            }}
-            aria-label="Open notifications"
-            className="relative w-9 h-9 rounded-full bg-white border border-neutral-200 hover:border-neutral-300 flex items-center justify-center text-neutral-800 cursor-pointer transition-colors"
-            title="Live Notifications"
-          >
-            <Bell className="w-4 h-4" />
-            {unreadConsumerAlertsCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white font-mono tabular-nums font-bold text-[10px] flex items-center justify-center">
-                {unreadConsumerAlertsCount}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => go('wallet')}
-            className="px-3 py-1.5 rounded-full font-bold text-xs flex items-center gap-1.5 cursor-pointer font-mono tabular-nums whitespace-nowrap"
-            style={{ background: 'var(--moneyTint)', color: 'var(--money)' }}
-          >
-            <Wallet className="w-3.5 h-3.5 shrink-0" />
-            <span>{rs(user?.walletBalance ?? 0)}</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Compact 3-Step Flow Strip */}
-      <div style={{ margin: '10px 16px 0', padding: '11px 14px', borderRadius: 18, background: 'var(--ink)', color: '#fff' }}>
-        <div style={{ fontSize: 'calc(11.5px * var(--fs))', color: 'rgba(255,255,255,.65)', marginBottom: 8, fontWeight: 600 }}>
-          How it works
-        </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-          {[
-            ['1', 'Pick phone', '#fff', 'var(--ink)'],
-            ['2', 'Record 1 min', 'var(--rec)', '#fff'],
-            ['3', 'Get cash', 'var(--money)', '#fff'],
-          ].map(([num, txt, bg, col]) => (
-            <div key={num} style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-              <div style={{ width: 22, height: 22, borderRadius: 99, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 'calc(11px * var(--fs))', background: bg, color: col, flexShrink: 0 }}>
-                {num}
-              </div>
-              <div style={{ fontSize: 'calc(12px * var(--fs))', lineHeight: 1.15, fontWeight: 700 }} className="truncate">
-                {txt}
-              </div>
+    <div className="flex-1 w-full">
+      <div className="w-full max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-8">
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div style={{ color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))', lineHeight: 1.1 }}>Namaste,</div>
+            <div className="truncate" style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'calc(24px * var(--fs))', letterSpacing: '-0.02em', lineHeight: 1.15 }}>
+              {(user?.name || 'Reviewer').split(' ')[0]} 👋
             </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Search & Brand Filter Strip */}
-      <div style={{ padding: '10px 16px 4px' }}>
-        <div className="flex items-baseline justify-between gap-2 mb-1.5">
-          <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'calc(18px * var(--fs))', letterSpacing: '-0.02em' }}>
-            Which phone do you own?
           </div>
-          <span className="text-[11px] font-mono tabular-nums text-neutral-500 shrink-0">
-            {filteredPhones.length} models
-          </span>
-        </div>
-
-        {/* Search Bar */}
-        <label className="fp-search" style={{ marginTop: 4, marginBottom: 8, height: 44, borderRadius: 12 }}>
-          <Search className="w-4 h-4 text-neutral-400 shrink-0" />
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search Galaxy, iPhone, Redmi, Vivo..."
-            style={{ fontSize: 'calc(14px * var(--fs))' }}
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => setSearchQuery('')} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 cursor-pointer">
-              Clear
-            </button>
-          )}
-        </label>
-
-        {/* Brand Filter Pills */}
-        <div className="flex items-center gap-1.5 overflow-x-auto py-1 -mx-1 px-1 scrollbar-none">
-          {[
-            { id: 'all', label: '📱 All Brands', count: 129 },
-            { id: 'samsung', label: '🌌 Samsung Galaxy', count: 24 },
-            { id: 'apple', label: '🍏 Apple iPhone', count: 30 },
-            { id: 'xiaomi', label: '🟠 Xiaomi / Redmi', count: 11 },
-            { id: 'vivo', label: '📸 Vivo & iQOO', count: 15 },
-            { id: 'google', label: '🔍 Google Pixel', count: 15 },
-            { id: 'oneplus', label: '⚡ OnePlus', count: 14 },
-            { id: 'oppo', label: '🟢 OPPO & Realme', count: 14 },
-            { id: 'nothing', label: '⚪ Nothing Phone', count: 4 },
-          ].map((bf) => {
-            const isActive = selectedBrandFolder === bf.id;
-            return (
-              <button
-                key={bf.id}
-                type="button"
-                onClick={() => {
-                  setSelectedBrandFolder(bf.id);
-                  setSelectedEra('all');
-                  if (bf.id !== 'all') {
-                    const firstOfBrand = PHONES.find(p => getPhoneBrandFolderId(p) === bf.id);
-                    if (firstOfBrand) {
-                      setSelectedPhoneId(firstOfBrand.id);
-                    }
-                  }
-                }}
-                className={`shrink-0 px-2.5 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
-                  isActive
-                    ? 'bg-neutral-900 text-white'
-                    : 'bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200'
-                }`}
-              >
-                <span>{bf.label}</span>
-                <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono tabular-nums ${
-                  isActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
-                }`}>
-                  {bf.count}
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setShowConsumerNotifDrawer((prev) => !prev);
+                setConsumerAlerts((prev) => prev.map((a) => ({ ...a, read: true })));
+              }}
+              aria-label="Open notifications"
+              className="relative w-10 h-10 rounded-full bg-white border border-neutral-200 hover:border-neutral-300 flex items-center justify-center text-neutral-800 cursor-pointer transition-colors"
+              title="Live Notifications"
+            >
+              <Bell className="w-4 h-4" />
+              {unreadConsumerAlertsCount > 0 && (
+                <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 rounded-full bg-rose-600 text-white font-mono tabular-nums font-bold text-[10px] flex items-center justify-center">
+                  {unreadConsumerAlertsCount}
                 </span>
-              </button>
-            );
-          })}
+              )}
+            </button>
+            <button
+              onClick={() => go('wallet')}
+              className="px-3.5 py-2 rounded-full font-bold text-xs flex items-center gap-1.5 cursor-pointer font-mono tabular-nums whitespace-nowrap"
+              style={{ background: 'var(--moneyTint)', color: 'var(--money)' }}
+            >
+              <Wallet className="w-3.5 h-3.5 shrink-0" />
+              <span>{rs(user?.walletBalance ?? 0)}</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      {/* Brand Categories Overview Hub OR Dedicated Brand Models Grid */}
-      {selectedBrandFolder === 'all' && !searchQuery ? (
-        <div style={{ padding: '6px 16px 18px' }}>
-          <div className="flex items-center justify-between mb-2.5">
-            <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-600 flex items-center gap-1.5">
-              <Folder className="w-3.5 h-3.5 text-sky-600" />
-              <span>Pick a Brand</span>
-            </h3>
-            <span className="text-[11px] font-mono tabular-nums font-semibold text-neutral-500">
-              {PHONE_BRANDS.filter((b) => b.id !== 'all').length} brands
+        {/* Compact 3-Step Flow Strip */}
+        <div className="mt-3 p-3 sm:px-5 sm:py-3.5 rounded-2xl bg-[var(--ink)] text-white">
+          <div style={{ fontSize: 'calc(11.5px * var(--fs))', color: 'rgba(255,255,255,.65)', marginBottom: 8, fontWeight: 600 }}>
+            How it works
+          </div>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            {[
+              ['1', 'Pick phone', '#fff', 'var(--ink)'],
+              ['2', 'Record 1 min', 'var(--rec)', '#fff'],
+              ['3', 'Get cash', 'var(--money)', '#fff'],
+            ].map(([num, txt, bg, col]) => (
+              <div key={num} style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+                <div style={{ width: 24, height: 24, borderRadius: 99, display: 'grid', placeItems: 'center', fontWeight: 800, fontSize: 'calc(11px * var(--fs))', background: bg, color: col, flexShrink: 0 }}>
+                  {num}
+                </div>
+                <div style={{ fontSize: 'calc(12.5px * var(--fs))', lineHeight: 1.15, fontWeight: 700 }} className="truncate">
+                  {txt}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Search & Brand Filter Strip */}
+        <div className="mt-4">
+          <div className="flex items-baseline justify-between gap-2 mb-1.5">
+            <div style={{ fontFamily: 'var(--display)', fontWeight: 700, fontSize: 'calc(19px * var(--fs))', letterSpacing: '-0.02em' }}>
+              Which phone do you own?
+            </div>
+            <span className="text-xs font-mono tabular-nums text-neutral-500 shrink-0">
+              {filteredPhones.length} models
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {PHONE_BRANDS.filter((b) => b.id !== 'all').map((brand) => {
-              const brandPhones = PHONES.filter((p) => getPhoneBrandFolderId(p) === brand.id);
-              const count = brandPhones.length;
-              const maxReward = brandPhones.length > 0 ? Math.max(...brandPhones.map((p) => p.reward)) : 850;
+          {/* Search Bar */}
+          <label className="fp-search" style={{ marginTop: 6, marginBottom: 10, height: 46, borderRadius: 12 }}>
+            <Search className="w-4 h-4 text-neutral-400 shrink-0" />
+            <input
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search Galaxy, iPhone, Redmi, Vivo..."
+              style={{ fontSize: 'calc(14px * var(--fs))' }}
+            />
+            {searchQuery && (
+              <button type="button" onClick={() => setSearchQuery('')} className="text-xs font-semibold text-neutral-500 hover:text-neutral-800 cursor-pointer">
+                Clear
+              </button>
+            )}
+          </label>
+
+          {/* Brand Filter Pills */}
+          <div className="flex items-center gap-1.5 overflow-x-auto lg:flex-wrap py-1 -mx-1 px-1 scrollbar-none">
+            {[
+              { id: 'all', label: '📱 All Brands', count: 129 },
+              { id: 'samsung', label: '🌌 Samsung Galaxy', count: 24 },
+              { id: 'apple', label: '🍏 Apple iPhone', count: 30 },
+              { id: 'xiaomi', label: '🟠 Xiaomi / Redmi', count: 11 },
+              { id: 'vivo', label: '📸 Vivo & iQOO', count: 15 },
+              { id: 'google', label: '🔍 Google Pixel', count: 15 },
+              { id: 'oneplus', label: '⚡ OnePlus', count: 14 },
+              { id: 'oppo', label: '🟢 OPPO & Realme', count: 14 },
+              { id: 'nothing', label: '⚪ Nothing Phone', count: 4 },
+            ].map((bf) => {
+              const isActive = selectedBrandFolder === bf.id;
               return (
                 <button
-                  key={brand.id}
+                  key={bf.id}
                   type="button"
                   onClick={() => {
-                    setSelectedBrandFolder(brand.id);
+                    setSelectedBrandFolder(bf.id);
                     setSelectedEra('all');
-                    if (brand.id !== 'all') {
-                      const firstOfBrand = PHONES.find(p => getPhoneBrandFolderId(p) === brand.id);
+                    if (bf.id !== 'all') {
+                      const firstOfBrand = PHONES.find(p => getPhoneBrandFolderId(p) === bf.id);
                       if (firstOfBrand) {
                         setSelectedPhoneId(firstOfBrand.id);
                       }
                     }
                   }}
-                  className="rounded-2xl border border-neutral-200 hover:border-neutral-400 bg-white p-2.5 transition-colors text-left cursor-pointer flex items-center gap-3 group"
+                  className={`shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap ${
+                    isActive
+                      ? 'bg-neutral-900 text-white'
+                      : 'bg-white hover:bg-neutral-50 text-neutral-700 border border-neutral-200'
+                  }`}
                 >
-                  <div className="w-12 h-12 rounded-xl bg-neutral-900 overflow-hidden relative shrink-0">
-                    <img
-                      src={brand.photo || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80'}
-                      alt={brand.name}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/30 flex items-center justify-center text-lg">
-                      {brand.iconEmoji}
-                    </div>
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="font-bold text-sm text-neutral-900 group-hover:text-sky-700 transition-colors truncate">
-                      {brand.name}
-                    </div>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] font-mono tabular-nums">
-                      <span className="text-sky-700 font-bold">{count} models</span>
-                      <span className="text-neutral-300">·</span>
-                      <span className="text-emerald-700 font-bold">Up to {rs(maxReward)}</span>
-                    </div>
-                  </div>
-
-                  <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-700 shrink-0" />
+                  <span>{bf.label}</span>
+                  <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-mono tabular-nums ${
+                    isActive ? 'bg-white/20 text-white' : 'bg-neutral-100 text-neutral-500'
+                  }`}>
+                    {bf.count}
+                  </span>
                 </button>
               );
             })}
           </div>
         </div>
-      ) : (
-        <div style={{ padding: '6px 16px 18px' }}>
+
+        {/* Brand Categories Overview Hub OR Dedicated Brand Models Grid */}
+        {selectedBrandFolder === 'all' && !searchQuery ? (
+          <div className="pt-3 pb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-xs uppercase tracking-wider text-neutral-600 flex items-center gap-1.5">
+                <Folder className="w-3.5 h-3.5 text-sky-600" />
+                <span>Pick a Brand</span>
+              </h3>
+              <span className="text-[11px] font-mono tabular-nums font-semibold text-neutral-500">
+                {PHONE_BRANDS.filter((b) => b.id !== 'all').length} brands
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+              {PHONE_BRANDS.filter((b) => b.id !== 'all').map((brand) => {
+                const brandPhones = PHONES.filter((p) => getPhoneBrandFolderId(p) === brand.id);
+                const count = brandPhones.length;
+                const maxReward = brandPhones.length > 0 ? Math.max(...brandPhones.map((p) => p.reward)) : 850;
+                return (
+                  <button
+                    key={brand.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedBrandFolder(brand.id);
+                      setSelectedEra('all');
+                      if (brand.id !== 'all') {
+                        const firstOfBrand = PHONES.find(p => getPhoneBrandFolderId(p) === brand.id);
+                        if (firstOfBrand) {
+                          setSelectedPhoneId(firstOfBrand.id);
+                        }
+                      }
+                    }}
+                    className="rounded-2xl border border-neutral-200 hover:border-neutral-400 bg-white p-3 transition-colors text-left cursor-pointer flex items-center gap-3 group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-neutral-900 overflow-hidden relative shrink-0">
+                      <img
+                        src={brand.photo || 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=800&auto=format&fit=crop&q=80'}
+                        alt={brand.name}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/30 flex items-center justify-center text-lg">
+                        {brand.iconEmoji}
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm text-neutral-900 group-hover:text-sky-700 transition-colors truncate">
+                        {brand.name}
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-[11px] font-mono tabular-nums">
+                        <span className="text-sky-700 font-bold">{count} models</span>
+                        <span className="text-neutral-300">·</span>
+                        <span className="text-emerald-700 font-bold">Up to {rs(maxReward)}</span>
+                      </div>
+                    </div>
+
+                    <ChevronRight className="w-4 h-4 text-neutral-400 group-hover:text-neutral-700 shrink-0" />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div className="pt-3 pb-4">
           {/* Compact Active Category Bar */}
           {selectedBrandFolder !== 'all' && (
             <div className="mb-3 p-2.5 rounded-xl bg-slate-900 text-white text-left">
@@ -816,7 +799,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           )}
 
           {/* Clean Scannable Phone Grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(146px, 1fr))', gap: 10 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
           {filteredPhones.map((p) => {
             const cap = getPhoneCapabilities(p);
             const isSelected = selectedPhoneId === p.id;
@@ -924,6 +907,23 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
         </div>
       </div>
       )}
+
+        {/* Responsive Desktop Overview Footer Strip */}
+        <div className="hidden lg:grid grid-cols-3 gap-4 mt-8 pt-6 border-t border-[var(--line)] text-xs text-[var(--ink2)] leading-relaxed">
+          <div className="bg-white/70 border border-[var(--line)] rounded-2xl p-4">
+            <div className="font-bold text-[var(--ink)] mb-1">Only real products &amp; phones</div>
+            Consumers select their verified phone from authentic models and share honest product feedback.
+          </div>
+          <div className="bg-white/70 border border-[var(--line)] rounded-2xl p-4">
+            <div className="font-bold text-[var(--ink)] mb-1">One question at a time</div>
+            Guided conversational prompts in your preferred language keep every 1–3 minute video review effortless.
+          </div>
+          <div className="bg-white/70 border border-[var(--line)] rounded-2xl p-4">
+            <div className="font-bold text-[var(--ink)] mb-1">100% Free Instant Payouts</div>
+            Withdraw directly to eSewa, Khalti, ConnectIPS, or Bank Transfer — companies cover the 5% platform fee.
+          </div>
+        </div>
+      </div>
     </div>
   );
 
@@ -939,186 +939,192 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
       : 0;
 
     return (
-      <div className="fp-screen" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 flex flex-col w-full">
         <TopBar onBack={() => go('home')} title="Campaign" />
-        <div className="fp-scroll" style={{ flex: 1 }}>
-          <div style={{ margin: '0 16px', borderRadius: 20, background: '#fff', height: 168, display: 'grid', placeItems: 'center', border: '1px solid var(--line)', padding: 10 }}>
-            <img src={currentPhone.img} alt={currentPhone.name} style={{ maxWidth: '78%', maxHeight: 144, objectFit: 'contain' }} />
-          </div>
+        <div className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 pb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-[320px,1fr] gap-5 items-start">
+            <div>
+              <div className="rounded-2xl bg-white h-48 sm:h-64 grid place-items-center border border-[var(--line)] p-4">
+                <img src={currentPhone.img} alt={currentPhone.name} className="max-w-[80%] max-h-40 sm:max-h-52 object-contain" />
+              </div>
 
-          <div style={{ padding: '12px 16px 0' }}>
-            <div className="flex items-center justify-between gap-2">
-              <span style={{ fontSize: 'calc(12px * var(--fs))', color: 'var(--ink2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>
-                {currentPhone.brand}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setCampaignSubmitNotice(null);
-                  setIsPhoneSelectorOpen(true);
-                }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[11px] font-bold transition-colors border border-neutral-200 cursor-pointer whitespace-nowrap"
-              >
-                <Smartphone className="w-3 h-3 text-blue-600" />
-                <span>Switch Model ▾</span>
-              </button>
-            </div>
-            <div style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 'calc(24px * var(--fs))', letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: 2 }}>
-              {currentPhone.name}
-            </div>
-            <div style={{ color: 'var(--ink2)', fontSize: 'calc(13.5px * var(--fs))', marginTop: 4 }}>
-              {currentPhone.spec}
-            </div>
-          </div>
-
-          {/* Reward & Duration Summary */}
-          <div style={{ margin: '12px 16px 0', display: 'flex', gap: 8 }}>
-            <div className="fp-stat" style={{ background: 'var(--moneyTint)', color: 'var(--money)', padding: '10px 12px' }}>
-              <div style={{ fontSize: 'calc(12px * var(--fs))', fontWeight: 700 }}>You earn</div>
-              <div className="tabular-nums" style={{ fontSize: 'calc(20px * var(--fs))', fontWeight: 800, fontFamily: 'var(--display)' }}>
-                {rs(currentPhone.reward)}
-              </div>
-            </div>
-            <div className="fp-stat" style={{ padding: '10px 12px' }}>
-              <div style={{ fontSize: 'calc(12px * var(--fs))', fontWeight: 700, color: 'var(--ink2)' }}>Time</div>
-              <div className="tabular-nums" style={{ fontSize: 'calc(20px * var(--fs))', fontWeight: 800, fontFamily: 'var(--display)' }}>
-                1-3 min
-              </div>
-            </div>
-          </div>
-
-          {/* Campaign Device Specs & Recording Readiness (No Questions Displayed Before Recording) */}
-          <div style={{ padding: '18px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 20, padding: '14px 16px' }} className="space-y-2.5 text-left">
-              <div style={{ fontWeight: 800, fontSize: 'calc(16px * var(--fs))', color: 'var(--ink)' }}>
-                Device & Campaign Highlights
-              </div>
-              <div className="space-y-1.5 text-xs text-neutral-700">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                  <span><b>Camera:</b> {cap.camera}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Smartphone className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                  <span><b>Display:</b> {cap.display}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Cpu className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <span><b>Processor:</b> {cap.chipset}</span>
-                </div>
-              </div>
-              <div className="pt-2 border-t border-neutral-100 text-xs text-neutral-600 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                <span>
-                  Questions appear live on screen only once video recording starts so every review stays natural and authentic.
-                </span>
-              </div>
-            </div>
-
-            {/* Recorded Draft Video & Answers Ready Card on Campaign Screen */}
-            {hasDraftForThisPhone && (
-              <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 20, padding: '14px 16px' }} className="space-y-2.5 text-left">
+              <div className="pt-3">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Recorded Review Ready to Submit</span>
+                  <span style={{ fontSize: 'calc(12px * var(--fs))', color: 'var(--ink2)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '.06em' }}>
+                    {currentPhone.brand}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCampaignSubmitNotice(null);
+                      setIsPhoneSelectorOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-neutral-100 hover:bg-neutral-200 text-neutral-800 text-[11px] font-bold transition-colors border border-neutral-200 cursor-pointer whitespace-nowrap"
+                  >
+                    <Smartphone className="w-3 h-3 text-blue-600" />
+                    <span>Switch Model ▾</span>
+                  </button>
+                </div>
+                <div style={{ fontFamily: 'var(--display)', fontWeight: 800, fontSize: 'calc(24px * var(--fs))', letterSpacing: '-0.02em', lineHeight: 1.1, marginTop: 2 }}>
+                  {currentPhone.name}
+                </div>
+                <div style={{ color: 'var(--ink2)', fontSize: 'calc(13.5px * var(--fs))', marginTop: 4 }}>
+                  {currentPhone.spec}
+                </div>
+              </div>
+
+              {/* Reward & Duration Summary */}
+              <div className="mt-3 flex gap-2">
+                <div className="fp-stat" style={{ background: 'var(--moneyTint)', color: 'var(--money)', padding: '10px 12px' }}>
+                  <div style={{ fontSize: 'calc(12px * var(--fs))', fontWeight: 700 }}>You earn</div>
+                  <div className="tabular-nums" style={{ fontSize: 'calc(20px * var(--fs))', fontWeight: 800, fontFamily: 'var(--display)' }}>
+                    {rs(currentPhone.reward)}
                   </div>
-                  <span className="text-[11px] font-mono font-bold text-emerald-800">
-                    {draftAnsweredCount} answers
+                </div>
+                <div className="fp-stat" style={{ padding: '10px 12px' }}>
+                  <div style={{ fontSize: 'calc(12px * var(--fs))', fontWeight: 700, color: 'var(--ink2)' }}>Time</div>
+                  <div className="tabular-nums" style={{ fontSize: 'calc(20px * var(--fs))', fontWeight: 800, fontFamily: 'var(--display)' }}>
+                    1-3 min
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Campaign Device Specs & Recording Readiness (No Questions Displayed Before Recording) */}
+            <div className="flex flex-col gap-3">
+              <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 20, padding: '16px 18px' }} className="space-y-3 text-left">
+                <div style={{ fontWeight: 800, fontSize: 'calc(16px * var(--fs))', color: 'var(--ink)' }}>
+                  Device & Campaign Highlights
+                </div>
+                <div className="space-y-2 text-xs sm:text-sm text-neutral-700">
+                  <div className="flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-rose-500 shrink-0" />
+                    <span><b>Camera:</b> {cap.camera}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-sky-500 shrink-0" />
+                    <span><b>Display:</b> {cap.display}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Cpu className="w-4 h-4 text-amber-500 shrink-0" />
+                    <span><b>Processor:</b> {cap.chipset}</span>
+                  </div>
+                </div>
+                <div className="pt-2.5 border-t border-neutral-100 text-xs text-neutral-600 flex items-start gap-2">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                  <span>
+                    Questions appear live on screen only once video recording starts so every review stays natural and authentic.
                   </span>
                 </div>
-                {draftReview?.videoUrl && (
-                  <div className="rounded-xl overflow-hidden bg-black aspect-video border border-emerald-200">
-                    <video
-                      src={draftReview.videoUrl}
-                      controls
-                      playsInline
-                      className="w-full h-full object-contain bg-black"
-                    />
+              </div>
+
+              {/* Recorded Draft Video & Answers Ready Card on Campaign Screen */}
+              {hasDraftForThisPhone && (
+                <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 20, padding: '14px 16px' }} className="space-y-2.5 text-left">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="text-xs font-extrabold text-emerald-900 flex items-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                      <span>Recorded Review Ready to Submit</span>
+                    </div>
+                    <span className="text-[11px] font-mono font-bold text-emerald-800">
+                      {draftAnsweredCount} answers
+                    </span>
                   </div>
-                )}
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowVideoPreviewModal(true)}
-                    className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs cursor-pointer transition-colors"
-                  >
-                    Preview Video & All Q&A
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => go('review')}
-                    className="flex-1 py-2 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs cursor-pointer transition-colors"
-                  >
-                    Edit & Rate →
-                  </button>
+                  {draftReview?.videoUrl && (
+                    <div className="rounded-xl overflow-hidden bg-black aspect-video border border-emerald-200">
+                      <video
+                        src={draftReview.videoUrl}
+                        controls
+                        playsInline
+                        className="w-full h-full object-contain bg-black"
+                      />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowVideoPreviewModal(true)}
+                      className="flex-1 py-2 px-3 rounded-xl bg-white hover:bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold text-xs cursor-pointer transition-colors"
+                    >
+                      Preview Video & All Q&A
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => go('review')}
+                      className="flex-1 py-2 px-3 rounded-xl bg-neutral-900 hover:bg-neutral-800 text-white font-bold text-xs cursor-pointer transition-colors"
+                    >
+                      Edit & Rate →
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {campaignSubmitNotice && (
-              <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-start gap-2 text-left">
-                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p>{campaignSubmitNotice}</p>
+              {campaignSubmitNotice && (
+                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs font-semibold flex items-start gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="flex-1">
+                    <p>{campaignSubmitNotice}</p>
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {submissionError && (
-              <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2 text-left">
-                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>{submissionError}</span>
-              </div>
-            )}
+              {submissionError && (
+                <div className="p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-semibold flex items-center gap-2 text-left">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+                  <span>{submissionError}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Consumer Campaign Action Bar: Record Video + Submit Review */}
-        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 10 }}>
-          <button
-            type="button"
-            className="fp-btn fp-btn-rec"
-            style={{ flex: 1, minWidth: 0, fontSize: 'calc(14px * var(--fs))', padding: '0 14px' }}
-            onClick={() => {
-              setCampaignSubmitNotice(null);
-              setSubmissionError(null);
-              go('record');
-            }}
-          >
-            <span style={{ width: 12, height: 12, borderRadius: 99, background: '#fff', flexShrink: 0 }} />
-            <span className="truncate">{hasDraftForThisPhone ? 'Re-record Video' : 'Start Video'}</span>
-          </button>
+        <div className="sticky bottom-0 z-20 border-t border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-sm">
+          <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-3 flex gap-2.5 pb-[calc(12px+env(safe-area-inset-bottom))]">
+            <button
+              type="button"
+              className="fp-btn fp-btn-rec"
+              style={{ flex: 1, minWidth: 0, fontSize: 'calc(14px * var(--fs))', padding: '0 14px' }}
+              onClick={() => {
+                setCampaignSubmitNotice(null);
+                setSubmissionError(null);
+                go('record');
+              }}
+            >
+              <span style={{ width: 12, height: 12, borderRadius: 99, background: '#fff', flexShrink: 0 }} />
+              <span className="truncate">{hasDraftForThisPhone ? 'Re-record Video' : 'Start Video'}</span>
+            </button>
 
-          <button
-            type="button"
-            disabled={isSubmittingReview}
-            className="fp-btn fp-btn-dark"
-            style={{ flex: 1, minWidth: 0, fontSize: 'calc(14px * var(--fs))', padding: '0 14px' }}
-            onClick={() => {
-              if (!user?.isLoggedIn || !auth.currentUser) {
-                onOpenGoogleAuth('login');
-                return;
-              }
-              if (!hasDraftForThisPhone) {
-                setCampaignSubmitNotice('Record your campaign video first — questions appear live while recording, then you can preview and submit.');
-                return;
-              }
-              submitCurrentDraftFeedback();
-            }}
-          >
-            {isSubmittingReview ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
-                <span className="truncate">Submitting...</span>
-              </>
-            ) : (
-              <>
-                <Send className="w-4 h-4 shrink-0" />
-                <span className="truncate">Submit Review</span>
-              </>
-            )}
-          </button>
+            <button
+              type="button"
+              disabled={isSubmittingReview}
+              className="fp-btn fp-btn-dark"
+              style={{ flex: 1, minWidth: 0, fontSize: 'calc(14px * var(--fs))', padding: '0 14px' }}
+              onClick={() => {
+                if (!user?.isLoggedIn || !auth.currentUser) {
+                  onOpenGoogleAuth('login');
+                  return;
+                }
+                if (!hasDraftForThisPhone) {
+                  setCampaignSubmitNotice('Record your campaign video first — questions appear live while recording, then you can preview and submit.');
+                  return;
+                }
+                submitCurrentDraftFeedback();
+              }}
+            >
+              {isSubmittingReview ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white shrink-0" />
+                  <span className="truncate">Submitting...</span>
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 shrink-0" />
+                  <span className="truncate">Submit Review</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -2322,44 +2328,46 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
 
   const renderRecorder = () => {
     return (
-      <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-400">Loading video studio...</div>}>
-        <TikTokCameraStudio
-          user={user}
-          currentPhone={currentPhone}
-          selectedLanguage={selectedLanguage}
-          onChangeLanguage={setSelectedLanguage}
-          selectedVoiceTone={selectedVoiceTone}
-          onChangeVoiceTone={setSelectedVoiceTone}
-          recordingAtmosphere={recordingAtmosphere}
-          onChangeAtmosphere={handleSelectAtmosphere}
-          activeGender={activeGender}
-          activeTitle={activeTitle}
-          onChangeGender={handleGenderChange}
-          onChangeTitle={handleTitleChange}
-          customReviewerName={customReviewerName}
-          onChangeReviewerName={(name) => {
-            setCustomReviewerName(name);
-            onUpdateUser({ name });
-          }}
-          detectedSpecs={detectedSpecs}
-          termsAccepted={termsAccepted}
-          onToggleTerms={handleToggleTerms}
-          hidePhoneModelInReview={hidePhoneModelInReview}
-          onToggleHidePhoneModel={setHidePhoneModelInReview}
-          onFinishRecording={(reviewData) => {
-            setDraftReview(reviewData);
-            if (reviewData.allAnswers) {
-              setUserAnswers(reviewData.allAnswers);
-            }
-            setShowVideoPreviewModal(true);
-            go('review');
-          }}
-          onExit={() => go('detail')}
-          onOpenPhoneSelector={() => setIsPhoneSelectorOpen(true)}
-          onUpdateUser={onUpdateUser}
-          playAudioEffect={playAudioEffect}
-        />
-      </Suspense>
+      <div className="flex-1 min-h-[calc(100dvh-56px)] bg-neutral-950 lg:p-4 flex flex-col justify-center">
+        <Suspense fallback={<div className="p-8 text-center text-xs font-semibold text-slate-400">Loading video studio...</div>}>
+          <TikTokCameraStudio
+            user={user}
+            currentPhone={currentPhone}
+            selectedLanguage={selectedLanguage}
+            onChangeLanguage={setSelectedLanguage}
+            selectedVoiceTone={selectedVoiceTone}
+            onChangeVoiceTone={setSelectedVoiceTone}
+            recordingAtmosphere={recordingAtmosphere}
+            onChangeAtmosphere={handleSelectAtmosphere}
+            activeGender={activeGender}
+            activeTitle={activeTitle}
+            onChangeGender={handleGenderChange}
+            onChangeTitle={handleTitleChange}
+            customReviewerName={customReviewerName}
+            onChangeReviewerName={(name) => {
+              setCustomReviewerName(name);
+              onUpdateUser({ name });
+            }}
+            detectedSpecs={detectedSpecs}
+            termsAccepted={termsAccepted}
+            onToggleTerms={handleToggleTerms}
+            hidePhoneModelInReview={hidePhoneModelInReview}
+            onToggleHidePhoneModel={setHidePhoneModelInReview}
+            onFinishRecording={(reviewData) => {
+              setDraftReview(reviewData);
+              if (reviewData.allAnswers) {
+                setUserAnswers(reviewData.allAnswers);
+              }
+              setShowVideoPreviewModal(true);
+              go('review');
+            }}
+            onExit={() => go('detail')}
+            onOpenPhoneSelector={() => setIsPhoneSelectorOpen(true)}
+            onUpdateUser={onUpdateUser}
+            playAudioEffect={playAudioEffect}
+          />
+        </Suspense>
+      </div>
     );
   };
 
@@ -2583,19 +2591,12 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
     const answeredTotal = qaPairs.filter((x) => Boolean(x.answer)).length;
 
     return (
-      <div className="fp-screen" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 flex flex-col w-full">
         <TopBar onBack={() => go('record')} title="Check & send" />
-        <div className="fp-scroll" style={{ flex: 1, padding: '0 20px 20px' }}>
+        <div className="flex-1 w-full max-w-4xl mx-auto px-4 sm:px-6 pb-8">
           {/* Playable Recorded Video Preview */}
           <div
-            className="fp-camera-dark-bg"
-            style={{
-              position: 'relative',
-              height: 220,
-              borderRadius: 24,
-              overflow: 'hidden',
-              background: '#000',
-            }}
+            className="fp-camera-dark-bg h-56 sm:h-72 rounded-2xl overflow-hidden bg-black relative"
           >
             {draftReview?.videoUrl ? (
               <video
@@ -2779,24 +2780,26 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           </div>
         )}
 
-        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--line)', background: 'var(--paper)', display: 'flex', gap: 10 }}>
-          <button className="fp-btn fp-btn-outline" style={{ flex: '0 0 auto', width: 'auto', padding: '0 18px' }} onClick={() => go('record')}>
-            Redo
-          </button>
-          <button
-            className="fp-btn fp-btn-dark flex items-center justify-center gap-2 cursor-pointer"
-            disabled={isSubmittingReview}
-            onClick={submitCurrentDraftFeedback}
-          >
-            {isSubmittingReview ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-                <span>{submissionStatusMsg || 'Saving to Firestore...'}</span>
-              </>
-            ) : (
-              <span>Send & get {rs(currentPhone.reward)}</span>
-            )}
-          </button>
+        <div className="sticky bottom-0 z-20 border-t border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-sm">
+          <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 py-3 flex gap-2.5 pb-[calc(12px+env(safe-area-inset-bottom))]">
+            <button className="fp-btn fp-btn-outline" style={{ flex: '0 0 auto', width: 'auto', padding: '0 18px' }} onClick={() => go('record')}>
+              Redo
+            </button>
+            <button
+              className="fp-btn fp-btn-dark flex items-center justify-center gap-2 cursor-pointer"
+              disabled={isSubmittingReview}
+              onClick={submitCurrentDraftFeedback}
+            >
+              {isSubmittingReview ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                  <span>{submissionStatusMsg || 'Saving to Firestore...'}</span>
+                </>
+              ) : (
+                <span>Send & get {rs(currentPhone.reward)}</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -2853,7 +2856,8 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
     const showSuccessQa = Boolean(lastSubmittedReview && expandedVideoQaId === lastSubmittedReview.id);
 
     return (
-      <div className="fp-screen fp-scroll" style={{ background: '#0F172A', color: '#fff', padding: '24px 20px 28px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      <div className="flex-1 bg-[#0F172A] text-white px-4 sm:px-6 py-8">
+        <div className="w-full max-w-xl mx-auto flex flex-col gap-4">
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', gap: 12 }}>
           <div style={{ width: 80, height: 80, borderRadius: 99, background: '#F59E0B', color: '#fff', display: 'grid', placeItems: 'center', boxShadow: '0 20px 40px rgba(0,0,0,.35)' }} className="fp-pop">
             <Clock className="w-10 h-10 stroke-[3]" />
@@ -2863,12 +2867,12 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
             Review Submitted for<br />Company Moderation!
           </div>
 
-          <p style={{ fontSize: 'calc(14.5px * var(--fs))', lineHeight: 1.4, color: 'rgba(255,255,255,.85)', maxWidth: 290 }}>
+          <p style={{ fontSize: 'calc(14.5px * var(--fs))', lineHeight: 1.4, color: 'rgba(255,255,255,.85)', maxWidth: 400 }}>
             Your video review for <b>{currentPhone.name}</b> has been queued for brand verification.
           </p>
 
           {/* Payout Pending Card */}
-          <div style={{ background: 'rgba(245, 158, 11, 0.15)', borderRadius: 20, padding: '12px 18px', border: '1px solid rgba(245, 158, 11, 0.4)', width: '100%', maxWidth: 340 }}>
+          <div style={{ background: 'rgba(245, 158, 11, 0.15)', borderRadius: 20, padding: '14px 18px', border: '1px solid rgba(245, 158, 11, 0.4)', width: '100%' }}>
             <div style={{ fontSize: 'calc(12px * var(--fs))', color: '#FCD34D', fontWeight: 700 }}>Reward Release on Approval</div>
             <div style={{ fontFamily: 'var(--display)', fontSize: 'calc(30px * var(--fs))', fontWeight: 800, marginTop: 2, color: '#FDE68A' }}>
               +{rs(currentPhone.reward)}
@@ -2880,7 +2884,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
 
           {/* Submitted Video & All Q&A Preview Actions */}
           {lastSubmittedReview && (
-            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.22)', width: '100%', maxWidth: 340, textAlign: 'left' }}>
+            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: '14px 16px', border: '1px solid rgba(255,255,255,0.22)', width: '100%', textAlign: 'left' }}>
               <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-emerald-300">
                 <span className="flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-yellow-300" /> Submitted Feedback Record</span>
                 <span className="bg-emerald-400 text-neutral-950 px-2 py-0.5 rounded-full font-black text-xs shadow-xs tabular-nums">
@@ -2951,7 +2955,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           )}
 
           {/* Review Verification Status */}
-          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.15)', width: '100%', maxWidth: 340, textAlign: 'left' }}>
+          <div style={{ background: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: '12px 16px', border: '1px solid rgba(255,255,255,0.15)', width: '100%', textAlign: 'left' }}>
             <div className="text-[11px] font-black uppercase tracking-wider text-amber-300 mb-2">
               Verification Status
             </div>
@@ -2972,7 +2976,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           </div>
 
           {/* Verified Device & Privacy Status Badge */}
-          <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.18)', width: '100%', maxWidth: 340, textAlign: 'left' }}>
+          <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: 20, padding: '10px 14px', border: '1px solid rgba(255,255,255,0.18)', width: '100%', textAlign: 'left' }}>
             <div className="flex items-center justify-between text-[11px] font-black uppercase tracking-wider text-emerald-300">
               <span className="flex items-center gap-1.5"><ShieldCheck className="w-3.5 h-3.5 text-emerald-400" /> Device Verified</span>
               <span className="bg-emerald-400 text-neutral-950 px-2 py-0.5 rounded-full font-black text-[10px]">100% Legit</span>
@@ -2983,7 +2987,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           </div>
         </div>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="flex flex-col sm:flex-row gap-2.5">
         <button className="fp-btn fp-btn-light" onClick={() => go('wallet')}>
           <Wallet className="w-5 h-5 text-neutral-900" />
           <span>View my wallet</span>
@@ -3002,6 +3006,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           Review another phone
         </button>
       </div>
+      </div>
     </div>
     );
   };
@@ -3010,81 +3015,83 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
    * SCREEN 7: WALLET
    * ========================================================================= */
   const renderWallet = () => (
-    <div className="fp-screen fp-scroll">
+    <div className="flex-1 w-full">
       <TopBar title="My wallet" />
-      <div style={{ margin: '0 20px', borderRadius: 28, background: 'var(--ink)', color: '#fff', padding: 22 }}>
-        <div style={{ fontSize: 'calc(15px * var(--fs))', color: 'rgba(255,255,255,.65)' }}>Money you can withdraw</div>
-        <div style={{ fontFamily: 'var(--display)', fontSize: 'calc(44px * var(--fs))', fontWeight: 800, letterSpacing: '-0.03em', marginTop: 4 }}>
-          {rs(user.walletBalance)}
-        </div>
-
-        <button
-          className="fp-btn"
-          style={{ marginTop: 16, background: 'var(--money)', color: '#fff' }}
-          onClick={() => go('withdraw')}
-          disabled={user.walletBalance < 100}
-        >
-          <Download className="w-5 h-5" /> Take out money
-        </button>
-
-        <div style={{ fontSize: 'calc(13px * var(--fs))', color: 'rgba(255,255,255,.55)', marginTop: 10, textAlign: 'center' }}>
-          Minimum Rs 100 · 100% No fee for you (Company pays 5% platform cost)
-        </div>
-      </div>
-
-      <div style={{ padding: '22px 20px 8px', fontWeight: 800, fontSize: 'calc(18px * var(--fs))' }}>
-        History
-      </div>
-      <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {walletHistory.length === 0 ? (
-          <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 18, padding: '18px 14px', textAlign: 'center', color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))' }}>
-            No wallet transactions yet. Record your first smartphone video review to start earning.
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-8">
+        <div className="rounded-3xl bg-[var(--ink)] text-white p-5 sm:p-6">
+          <div style={{ fontSize: 'calc(15px * var(--fs))', color: 'rgba(255,255,255,.65)' }}>Money you can withdraw</div>
+          <div style={{ fontFamily: 'var(--display)', fontSize: 'calc(44px * var(--fs))', fontWeight: 800, letterSpacing: '-0.03em', marginTop: 4 }}>
+            {rs(user.walletBalance)}
           </div>
-        ) : (
-          walletHistory.map((h, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid var(--line)', borderRadius: 18, padding: '12px 14px' }}>
-              <div
-                style={{
-                  width: 42,
-                  height: 42,
-                  borderRadius: 14,
-                  display: 'grid',
-                  placeItems: 'center',
-                  background: h.kind === 'credited' ? 'var(--moneyTint)' : 'var(--paper2)',
-                  color: h.kind === 'credited' ? 'var(--money)' : h.kind === 'pending_credit' ? '#b45309' : 'var(--ink)',
-                }}
-              >
-                {h.kind === 'withdrawal' ? <Download className="w-5 h-5" /> : <Video className="w-5 h-5" />}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: 'calc(15px * var(--fs))' }}>{h.title}</div>
-                <div style={{ color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))' }}>{h.when}</div>
-              </div>
-              <div
-                style={{
-                  fontWeight: 800,
-                  fontSize: 'calc(16px * var(--fs))',
-                  color:
-                    h.kind === 'credited'
-                      ? 'var(--money)'
-                      : h.kind === 'pending_credit'
-                      ? '#b45309'
-                      : h.kind === 'rejected'
-                      ? '#94a3b8'
-                      : 'var(--ink)',
-                }}
-              >
-                {h.kind === 'credited'
-                  ? `+ ${rs(Math.abs(h.amt))}`
-                  : h.kind === 'pending_credit'
-                  ? `${rs(Math.abs(h.amt))} pending`
-                  : h.kind === 'rejected'
-                  ? 'Rs 0'
-                  : `− ${rs(Math.abs(h.amt))}`}
-              </div>
+
+          <button
+            className="fp-btn max-w-sm"
+            style={{ marginTop: 16, background: 'var(--money)', color: '#fff' }}
+            onClick={() => go('withdraw')}
+            disabled={user.walletBalance < 100}
+          >
+            <Download className="w-5 h-5" /> Take out money
+          </button>
+
+          <div style={{ fontSize: 'calc(13px * var(--fs))', color: 'rgba(255,255,255,.55)', marginTop: 10 }}>
+            Minimum Rs 100 · 100% No fee for you (Company pays 5% platform cost)
+          </div>
+        </div>
+
+        <div style={{ padding: '22px 0 8px', fontWeight: 800, fontSize: 'calc(18px * var(--fs))' }}>
+          History
+        </div>
+        <div className="flex flex-col gap-2">
+          {walletHistory.length === 0 ? (
+            <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 18, padding: '24px 16px', textAlign: 'center', color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))' }}>
+              No wallet transactions yet. Record your first smartphone video review to start earning.
             </div>
-          ))
-        )}
+          ) : (
+            walletHistory.map((h, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, background: '#fff', border: '1px solid var(--line)', borderRadius: 18, padding: '12px 14px' }}>
+                <div
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 14,
+                    display: 'grid',
+                    placeItems: 'center',
+                    background: h.kind === 'credited' ? 'var(--moneyTint)' : 'var(--paper2)',
+                    color: h.kind === 'credited' ? 'var(--money)' : h.kind === 'pending_credit' ? '#b45309' : 'var(--ink)',
+                  }}
+                >
+                  {h.kind === 'withdrawal' ? <Download className="w-5 h-5" /> : <Video className="w-5 h-5" />}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: 'calc(15px * var(--fs))' }}>{h.title}</div>
+                  <div style={{ color: 'var(--ink2)', fontSize: 'calc(13px * var(--fs))' }}>{h.when}</div>
+                </div>
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: 'calc(16px * var(--fs))',
+                    color:
+                      h.kind === 'credited'
+                        ? 'var(--money)'
+                        : h.kind === 'pending_credit'
+                        ? '#b45309'
+                        : h.kind === 'rejected'
+                        ? '#94a3b8'
+                        : 'var(--ink)',
+                  }}
+                >
+                  {h.kind === 'credited'
+                    ? `+ ${rs(Math.abs(h.amt))}`
+                    : h.kind === 'pending_credit'
+                    ? `${rs(Math.abs(h.amt))} pending`
+                    : h.kind === 'rejected'
+                    ? 'Rs 0'
+                    : `− ${rs(Math.abs(h.amt))}`}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -3116,7 +3123,8 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   const renderWithdraw = () => {
     if (withdrawDone) {
       return (
-        <div className="fp-screen" style={{ background: '#fff', padding: '30px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>
+        <div className="flex-1 bg-white px-6 py-12 flex flex-col items-center justify-center text-center">
+          <div className="w-full max-w-md flex flex-col items-center">
           <div style={{ width: 80, height: 80, borderRadius: 99, background: 'var(--moneyTint)', color: 'var(--money)', display: 'grid', placeItems: 'center' }}>
             <Check className="w-10 h-10 stroke-[3.5]" />
           </div>
@@ -3136,18 +3144,19 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           <button className="fp-btn fp-btn-dark" style={{ marginTop: 24 }} onClick={() => { setWithdrawDone(false); go('wallet'); }}>
             Back to Wallet
           </button>
+          </div>
         </div>
       );
     }
 
     return (
-      <div className="fp-screen" style={{ display: 'flex', flexDirection: 'column' }}>
+      <div className="flex-1 flex flex-col w-full">
         <TopBar title="Take out money" onBack={() => go('wallet')} />
-        <div className="fp-scroll" style={{ flex: 1, padding: '0 20px 20px' }}>
+        <div className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 pb-8">
           <div style={{ fontWeight: 800, fontSize: 'calc(16px * var(--fs))' }}>
             1. Where should we send it?
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-2.5">
             {GATEWAYS.map((x) => (
               <button
                 key={x.id}
@@ -3236,57 +3245,59 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           </div>
         </div>
 
-        <div style={{ padding: '12px 20px 16px', borderTop: '1px solid var(--line)', background: 'var(--paper)' }}>
-          <button
-            className="fp-btn fp-btn-dark flex items-center justify-center gap-2"
-            disabled={isWithdrawing || !withdrawAmount || withdrawAmount < 100 || withdrawAmount > user.walletBalance || accountNumber.trim().length < 3}
-            onClick={async () => {
-              if (!auth.currentUser) {
-                setWithdrawError('Please sign in with Google first.');
-                return;
-              }
-              setIsWithdrawing(true);
-              setWithdrawError(null);
-              try {
-                const req = await requestRealWithdrawalBatch({
-                  uid: auth.currentUser.uid,
-                  userName: user.name || 'Reviewer',
-                  gateway: gw.name,
-                  accountNumber,
-                  amountNPR: withdrawAmount,
-                });
-                const tx: WithdrawalTransaction = {
-                  id: req.id,
-                  title: `Sent to ${gw.name}`,
-                  gateway: gw.name,
-                  accountNumber: req.accountNumber,
-                  amount: req.amountNPR,
-                  companyProcessingFee: req.companyFeeNPR,
-                  totalCompanyCharge: req.amountNPR + req.companyFeeNPR,
-                  userFee: 0,
-                  when: 'Just now',
-                  status: 'Pending',
-                  referenceId: req.referenceId || '',
-                  currency: 'NPR',
-                };
-                onAddWithdrawal(tx);
-                setWithdrawDone(true);
-              } catch (err: unknown) {
-                setWithdrawError(formatFirestoreErrorMessage(err, 'Unable to process withdrawal request.'));
-              } finally {
-                setIsWithdrawing(false);
-              }
-            }}
-          >
-            {isWithdrawing ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Submitting Request...</span>
-              </>
-            ) : (
-              <span>Send {rs(withdrawAmount)} to {gw.name}</span>
-            )}
-          </button>
+        <div className="sticky bottom-0 z-20 border-t border-[var(--line)] bg-[var(--paper)]/95 backdrop-blur-sm">
+          <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 py-3 pb-[calc(12px+env(safe-area-inset-bottom))]">
+            <button
+              className="fp-btn fp-btn-dark flex items-center justify-center gap-2"
+              disabled={isWithdrawing || !withdrawAmount || withdrawAmount < 100 || withdrawAmount > user.walletBalance || accountNumber.trim().length < 3}
+              onClick={async () => {
+                if (!auth.currentUser) {
+                  setWithdrawError('Please sign in with Google first.');
+                  return;
+                }
+                setIsWithdrawing(true);
+                setWithdrawError(null);
+                try {
+                  const req = await requestRealWithdrawalBatch({
+                    uid: auth.currentUser.uid,
+                    userName: user.name || 'Reviewer',
+                    gateway: gw.name,
+                    accountNumber,
+                    amountNPR: withdrawAmount,
+                  });
+                  const tx: WithdrawalTransaction = {
+                    id: req.id,
+                    title: `Sent to ${gw.name}`,
+                    gateway: gw.name,
+                    accountNumber: req.accountNumber,
+                    amount: req.amountNPR,
+                    companyProcessingFee: req.companyFeeNPR,
+                    totalCompanyCharge: req.amountNPR + req.companyFeeNPR,
+                    userFee: 0,
+                    when: 'Just now',
+                    status: 'Pending',
+                    referenceId: req.referenceId || '',
+                    currency: 'NPR',
+                  };
+                  onAddWithdrawal(tx);
+                  setWithdrawDone(true);
+                } catch (err: unknown) {
+                  setWithdrawError(formatFirestoreErrorMessage(err, 'Unable to process withdrawal request.'));
+                } finally {
+                  setIsWithdrawing(false);
+                }
+              }}
+            >
+              {isWithdrawing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Submitting Request...</span>
+                </>
+              ) : (
+                <span>Send {rs(withdrawAmount)} to {gw.name}</span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -3296,10 +3307,11 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
    * SCREEN 9: MY VIDEOS (WITH ALL QUESTIONS & ANSWERS INLINE PREVIEW)
    * ========================================================================= */
   const renderMyVideos = () => (
-    <div className="fp-screen fp-scroll">
+    <div className="flex-1 w-full">
       <TopBar title="My videos" />
+      <div className="w-full max-w-5xl mx-auto px-4 sm:px-6 pb-8">
       {myVideosList.length === 0 ? (
-        <div style={{ padding: '40px 28px', textAlign: 'center' }}>
+        <div className="py-12 px-6 text-center max-w-md mx-auto">
           <div style={{ width: 80, height: 80, margin: '0 auto', borderRadius: 99, background: 'var(--paper2)', display: 'grid', placeItems: 'center' }}>
             <Video className="w-10 h-10 text-neutral-600" />
           </div>
@@ -3312,7 +3324,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           </button>
         </div>
       ) : (
-        <div style={{ padding: '0 20px 24px', display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
           {myVideosList.map((r, i) => {
             const p = phoneById(r.phone);
             const rewardAmt = r.rewardAmount || p.reward || 150;
@@ -3495,6 +3507,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           })}
         </div>
       )}
+      </div>
     </div>
   );
 
@@ -3537,9 +3550,10 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
     ];
 
     return (
-      <div className="fp-screen fp-scroll">
+      <div className="flex-1 w-full">
         <TopBar title="Me" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0 16px 14px' }}>
+        <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pb-8">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, paddingBottom: 14 }}>
           <button
             type="button"
             onClick={() => (onOpenProfile ? onOpenProfile() : setShowEditProfileModal(true))}
@@ -3579,14 +3593,14 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
         </div>
 
         {showPrivacyNotice && (
-          <div style={{ margin: '0 16px 12px', padding: 12, background: '#E3F3EA', border: '1px solid #C4E6D2', borderRadius: 14, fontSize: 12.5, color: '#12805C' }}>
+          <div style={{ marginBottom: 12, padding: 12, background: '#E3F3EA', border: '1px solid #C4E6D2', borderRadius: 14, fontSize: 12.5, color: '#12805C' }}>
             <div style={{ fontWeight: 800, marginBottom: 3 }}>Privacy &amp; Biometrics Policy</div>
             Your face and voice recordings are strictly used for verified product feedback and never sold to third-party advertisers.
           </div>
         )}
 
         {/* Moderation Payout Status Summary */}
-        <div style={{ margin: '0 16px 12px', background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: '12px' }}>
+        <div style={{ marginBottom: 12, background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: '14px' }}>
           <div className="flex items-center justify-between text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
@@ -3600,18 +3614,18 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
               My Videos ({myVideosList.length}) →
             </button>
           </div>
-          <div className="grid grid-cols-3 gap-2 text-center font-mono tabular-nums">
-            <div className="bg-slate-50 p-2 rounded-xl border border-slate-200">
+          <div className="grid grid-cols-3 gap-2.5 text-center font-mono tabular-nums">
+            <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
               <div className="text-[10px] font-sans text-slate-500 font-semibold">Credited</div>
               <div className="text-sm font-black text-emerald-600 mt-0.5">{rs(user?.walletBalance ?? 0)}</div>
             </div>
-            <div className="bg-amber-50/70 p-2 rounded-xl border border-amber-200">
+            <div className="bg-amber-50/70 p-2.5 rounded-xl border border-amber-200">
               <div className="text-[10px] font-sans text-amber-800 font-semibold">Pending</div>
               <div className="text-sm font-black text-amber-600 mt-0.5">
                 {rs(myVideosList.filter((v) => v.moderationStatus === 'pending').reduce((s, v) => s + (v.rewardAmount || 150), 0))}
               </div>
             </div>
-            <div className={`p-2 rounded-xl border ${myVideosList.filter((v) => v.moderationStatus === 'rejected').length > 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
+            <div className={`p-2.5 rounded-xl border ${myVideosList.filter((v) => v.moderationStatus === 'rejected').length > 0 ? 'bg-rose-50/70 border-rose-200' : 'bg-slate-50 border-slate-200'}`}>
               <div className="text-[10px] font-sans text-slate-500 font-semibold">Re-record</div>
               <div className={`text-sm font-black mt-0.5 ${myVideosList.filter((v) => v.moderationStatus === 'rejected').length > 0 ? 'text-rose-600' : 'text-slate-700'}`}>
                 {myVideosList.filter((v) => v.moderationStatus === 'rejected').length}
@@ -3621,7 +3635,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
         </div>
 
         {/* Settings List */}
-        <div style={{ margin: '12px 16px 14px', background: '#fff', border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden' }}>
+        <div style={{ margin: '12px 0 14px', background: '#fff', border: '1px solid var(--line)', borderRadius: 16, overflow: 'hidden' }}>
           {profileRows.map((row, i) => (
             <button
               key={row.id}
@@ -3631,16 +3645,16 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 gap: 12,
-                padding: '13px 14px',
+                padding: '13px 16px',
                 borderTop: i ? '1px solid var(--line)' : 'none',
                 cursor: 'pointer',
                 textAlign: 'left',
-                minHeight: 50,
+                minHeight: 52,
               }}
               className="hover:bg-neutral-50 transition-colors"
             >
               <span style={{ flex: 1, fontWeight: 700, fontSize: 'calc(14.5px * var(--fs))' }}>{row.label}</span>
-              {row.val && <span className="truncate max-w-[160px]" style={{ color: 'var(--ink2)', fontSize: 'calc(12.5px * var(--fs))' }}>{row.val}</span>}
+              {row.val && <span className="truncate max-w-[200px]" style={{ color: 'var(--ink2)', fontSize: 'calc(12.5px * var(--fs))' }}>{row.val}</span>}
               <ChevronRight className="w-4 h-4 text-neutral-400 shrink-0" />
             </button>
           ))}
@@ -3652,6 +3666,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           className="text-center text-[10px] font-mono text-neutral-400 pb-5 select-none"
         >
           Dot Platform · v2.5
+        </div>
         </div>
 
         {/* Editable Profile Modal */}
@@ -3673,7 +3688,8 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
    * SCREEN: USER LEADERBOARD (TOP CONTRIBUTORS OF THE MONTH)
    * ========================================================================= */
   const renderLeaderboard = () => (
-    <div className="fp-screen fp-scroll" style={{ padding: '16px 18px 48px' }}>
+    <div className="flex-1 w-full">
+      <div className="w-full max-w-4xl mx-auto px-4 sm:px-6 pt-4 pb-12">
       {/* Top Bar Navigation */}
       <div className="flex items-center justify-between pb-3 mb-2 border-b border-neutral-200">
         <button
@@ -3698,6 +3714,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           onBack={() => go('home')}
         />
       </Suspense>
+      </div>
     </div>
   );
 
@@ -3706,7 +3723,7 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
     switch (screen) {
       case 'welcome':
         return (
-          <div className="fp-screen fp-scroll" style={{ padding: 0 }}>
+          <div className="flex-1 w-full">
             <LoginScreen
               onAuthenticated={(profile, preferredDest) => {
                 if (onAuthenticated) onAuthenticated(profile, preferredDest);
@@ -3747,11 +3764,14 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
   };
 
   return (
-    <div className="stage">
-      {/* Left Column: Simple Unnumbered Consumer Navigation Menu */}
-      <nav aria-label="Consumer navigation" className="side" style={{ justifySelf: 'end', minWidth: '240px', maxWidth: '260px' }}>
+    <div className="flex-1 w-full min-h-0 flex flex-col lg:flex-row max-w-[1440px] mx-auto bg-[var(--paper)]">
+      {/* Desktop / Laptop Left Sidebar Navigation */}
+      <nav
+        aria-label="Consumer navigation"
+        className="hidden lg:flex flex-col w-60 xl:w-64 shrink-0 border-r border-[var(--line)] bg-white/80 p-4 gap-1 sticky top-12 h-[calc(100dvh-48px)] overflow-y-auto"
+      >
         <div className="pb-2 mb-2 border-b border-black/10">
-          <h3 className="m-0 text-xs font-bold text-neutral-800 tracking-tight">
+          <h3 className="m-0 text-xs font-bold text-neutral-800 tracking-tight uppercase">
             Menu
           </h3>
         </div>
@@ -3822,16 +3842,6 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
           <button
             type="button"
             className="jump w-full text-xs whitespace-nowrap"
-            data-on={!deviceFrameMode}
-            onClick={onToggleLarge}
-          >
-            <Maximize2 className="w-4 h-4 text-slate-600 shrink-0" />
-            <span>{deviceFrameMode ? 'Full Width' : 'Phone Frame'}</span>
-          </button>
-
-          <button
-            type="button"
-            className="jump w-full text-xs whitespace-nowrap"
             data-on={false}
             onClick={() => onNavigateView?.('company')}
           >
@@ -3865,145 +3875,126 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
         </div>
       </nav>
 
-      {/* Center Device: Realistic Mobile Simulator */}
-      <div className={deviceFrameMode ? "device" : "w-full max-w-[420px] h-[calc(100dvh-88px)] max-h-[760px] min-h-[520px] rounded-[36px] bg-[#1b1b1d] p-1.5 shadow-2xl relative"}>
-        <div className="screen" style={{ position: 'relative' }}>
-          {/* Status Bar */}
-          <div className={`status ${isDark ? 'dark' : ''}`} style={{ background: statusBg }}>
-            <span>9:41</span>
-            <span className="island" />
-            <span style={{ fontFamily: 'var(--mono)', fontSize: 13 }}>5G ▮▮▮ 87%</span>
+      {/* Main Responsive Content Area (Edge-to-Edge on Mobile, Full Dashboard on Laptop/Desktop) */}
+      <div className="flex-1 min-w-0 flex flex-col relative min-h-0 bg-[var(--paper)]">
+        {/* Consumer Real-Time Toast Notification Banner */}
+        {activeConsumerToast && user?.isLoggedIn && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="fixed lg:absolute top-14 lg:top-3 inset-x-3 sm:left-auto sm:right-4 sm:w-96 z-40 animate-in slide-in-from-top-4 fade-in duration-200"
+          >
+            <div className="bg-slate-950/95 text-white rounded-2xl border border-emerald-500/40 shadow-2xl p-3 flex items-start gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
+                <Bell className="w-4 h-4" />
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = activeConsumerToast.targetScreen;
+                  setConsumerAlerts((prev) =>
+                    prev.map((a) => (a.id === activeConsumerToast.id ? { ...a, read: true } : a))
+                  );
+                  setActiveConsumerToast(null);
+                  if (target) go(target);
+                }}
+                className="flex-1 min-w-0 text-left cursor-pointer"
+              >
+                <div className="text-xs font-extrabold text-white truncate">
+                  {activeConsumerToast.title}
+                </div>
+                <div className="text-[11px] text-slate-300 line-clamp-2 leading-snug mt-0.5">
+                  {activeConsumerToast.message}
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveConsumerToast(null)}
+                className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer shrink-0"
+                aria-label="Dismiss notification"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
+        )}
 
-          {/* Consumer Real-Time Toast Notification Banner */}
-          {activeConsumerToast && user?.isLoggedIn && (
-            <div
-              role="status"
-              aria-live="polite"
-              className="absolute top-12 inset-x-3 z-40 animate-in slide-in-from-top-4 fade-in duration-200"
-            >
-              <div className="bg-slate-950/95 text-white rounded-2xl border border-emerald-500/40 shadow-2xl p-3 flex items-start gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-emerald-500/20 text-emerald-300 flex items-center justify-center shrink-0 mt-0.5">
-                  <Bell className="w-4 h-4" />
+        {/* Consumer Notification Drawer Overlay */}
+        {showConsumerNotifDrawer && user?.isLoggedIn && (
+          <div className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] flex justify-end items-start p-3 pt-14 sm:p-5 animate-in fade-in duration-150">
+            <div className="bg-white rounded-2xl border border-neutral-200 shadow-2xl overflow-hidden flex flex-col w-full max-w-md max-h-[80vh]">
+              <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-extrabold text-neutral-900">Your Live Notifications</h4>
+                  <p className="text-[11px] text-neutral-500">
+                    Approvals, company defect fixes & brand activity
+                  </p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const target = activeConsumerToast.targetScreen;
-                    setConsumerAlerts((prev) =>
-                      prev.map((a) => (a.id === activeConsumerToast.id ? { ...a, read: true } : a))
-                    );
-                    setActiveConsumerToast(null);
-                    if (target) go(target);
-                  }}
-                  className="flex-1 min-w-0 text-left cursor-pointer"
+                  onClick={() => setShowConsumerNotifDrawer(false)}
+                  className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 cursor-pointer"
+                  aria-label="Close notifications"
                 >
-                  <div className="text-xs font-extrabold text-white truncate">
-                    {activeConsumerToast.title}
-                  </div>
-                  <div className="text-[11px] text-slate-300 line-clamp-2 leading-snug mt-0.5">
-                    {activeConsumerToast.message}
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveConsumerToast(null)}
-                  className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer shrink-0"
-                  aria-label="Dismiss notification"
-                >
-                  <X className="w-3.5 h-3.5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </div>
-          )}
 
-          {/* Consumer Notification Drawer Overlay */}
-          {showConsumerNotifDrawer && user?.isLoggedIn && (
-            <div className="absolute inset-0 z-40 bg-black/45 backdrop-blur-[1px] flex flex-col justify-start p-3 pt-12 animate-in fade-in duration-150">
-              <div className="bg-white rounded-2xl border border-neutral-200 shadow-2xl overflow-hidden flex flex-col max-h-[75%]">
-                <div className="px-4 py-3 border-b border-neutral-100 flex items-center justify-between">
-                  <div>
-                    <h4 className="text-xs font-extrabold text-neutral-900">Your Live Notifications</h4>
-                    <p className="text-[11px] text-neutral-500">
-                      Approvals, company defect fixes & brand activity
+              <div className="overflow-y-auto divide-y divide-neutral-100 flex-1">
+                {consumerAlerts.length === 0 ? (
+                  <div className="p-6 text-center text-xs text-neutral-500 space-y-1">
+                    <Bell className="w-6 h-6 mx-auto text-neutral-400" />
+                    <p className="font-semibold text-neutral-700">No notifications yet</p>
+                    <p className="text-[11px]">
+                      Submit feedback or wait for admin/company updates to see live alerts here.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowConsumerNotifDrawer(false)}
-                    className="p-1.5 rounded-lg text-neutral-500 hover:text-neutral-900 hover:bg-neutral-100 cursor-pointer"
-                    aria-label="Close notifications"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-
-                <div className="overflow-y-auto divide-y divide-neutral-100 flex-1">
-                  {consumerAlerts.length === 0 ? (
-                    <div className="p-6 text-center text-xs text-neutral-500 space-y-1">
-                      <Bell className="w-6 h-6 mx-auto text-neutral-400" />
-                      <p className="font-semibold text-neutral-700">No notifications yet</p>
-                      <p className="text-[11px]">
-                        Submit feedback or wait for admin/company updates to see live alerts here.
-                      </p>
-                    </div>
-                  ) : (
-                    consumerAlerts.map((item) => (
-                      <button
-                        key={item.id}
-                        type="button"
-                        onClick={() => {
-                          setShowConsumerNotifDrawer(false);
-                          if (item.targetScreen) go(item.targetScreen);
-                        }}
-                        className="w-full p-3 text-left hover:bg-neutral-50 transition-colors flex items-start gap-2.5 cursor-pointer"
-                      >
-                        <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 mt-0.5">
-                          <Bell className="w-3.5 h-3.5" />
+                ) : (
+                  consumerAlerts.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        setShowConsumerNotifDrawer(false);
+                        if (item.targetScreen) go(item.targetScreen);
+                      }}
+                      className="w-full p-3 text-left hover:bg-neutral-50 transition-colors flex items-start gap-2.5 cursor-pointer"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-slate-900 text-white flex items-center justify-center shrink-0 mt-0.5">
+                        <Bell className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-bold text-neutral-900 truncate">
+                            {item.title}
+                          </span>
+                          <span className="text-[10px] font-mono tabular-nums text-neutral-400 shrink-0">
+                            {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs font-bold text-neutral-900 truncate">
-                              {item.title}
-                            </span>
-                            <span className="text-[10px] font-mono tabular-nums text-neutral-400 shrink-0">
-                              {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-neutral-600 line-clamp-2 mt-0.5 leading-snug">
-                            {item.message}
-                          </p>
-                        </div>
-                      </button>
-                    ))
-                  )}
-                </div>
+                        <p className="text-[11px] text-neutral-600 line-clamp-2 mt-0.5 leading-snug">
+                          {item.message}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
               </div>
             </div>
-          )}
-
-          {/* Screen Content */}
-          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
-            {renderCurrentScreen()}
           </div>
+        )}
 
-          {/* Bottom Tabs */}
-          {!NO_TABS.includes(screen) && <TabBar />}
-
-          {/* Homebar */}
-          <div
-            className={`homebar ${isDark ? 'dark' : ''}`}
-            style={{
-              background: NO_TABS.includes(screen)
-                ? statusBg === 'var(--paper)'
-                  ? 'var(--paper)'
-                  : statusBg
-                : '#fff',
-            }}
-          >
-            <span />
-          </div>
+        {/* Screen Content */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {renderCurrentScreen()}
         </div>
+
+        {/* Bottom Tabs (Mobile & Tablet only; Desktop uses Left Sidebar) */}
+        {!NO_TABS.includes(screen) && (
+          <div className="lg:hidden sticky bottom-0 z-30 shrink-0">
+            <TabBar />
+          </div>
+        )}
       </div>
 
       {/* Phone Selector Modal: All Brand Categories, Apple iPhone 1-18, Samsung, Pixel... */}
@@ -4425,18 +4416,6 @@ export const ConsumerView: React.FC<ConsumerViewProps> = ({
         </div>
       )}
 
-      {/* Right Column: Educational Architecture & Design Note */}
-      <div className="note">
-        <p>
-          <b>Only real products & phones.</b> Consumers select their verified phone from authentic high-res photos — avoiding complicated technical jargon.
-        </p>
-        <p>
-          <b>One question at a time.</b> The 2.5-minute conversational recorder prompts questions in your chosen language (Like 👍, Dislike 👎, In-Hand Comfort 🛋️, Phone Snapshot 📸, Final Verdict ⭐) with real human-voice guidance like a phone call.
-        </p>
-        <p>
-          <b>Nepal & Global 5% Math Engine.</b> The user receives the exact full amount (e.g. Rs 100). The company covers the 5% platform fee (Rs 5). User withdrawal is 100% free with instant eSewa, Khalti, ConnectIPS, Top-Up, or Bank transfer.
-        </p>
-      </div>
     </div>
   );
 };

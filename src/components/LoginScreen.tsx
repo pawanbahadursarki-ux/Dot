@@ -19,10 +19,12 @@ import {
   resendVerificationEmailForCurrentUser,
   verifyGmailCodeOrRefreshStatus,
   sendPasswordResetForEmail,
+  confirmPasswordResetWithCode,
   ensureUserDocsInFirestore,
   setPendingAuthAccountMode,
   fetchAuthorizedFirebaseDomains,
   signOutFirebase,
+  syncAuthPersistence,
 } from '../services/firebaseService';
 import { auth, formatFirestoreErrorMessage } from '../firebase';
 import { DotLogo } from './DotLogo';
@@ -31,6 +33,8 @@ import { AuthErrorNotice } from './AuthErrorNotice';
 interface LoginScreenProps {
   onAuthenticated: (profile: UserProfile, preferredDestination?: 'customer' | 'company') => void;
   onSwitchView?: (view: 'customer' | 'company' | 'admin') => void;
+  initialAuthError?: string | null;
+  onClearAuthError?: () => void;
 }
 
 type AuthScreenMode = 'signin' | 'signup' | 'verify' | 'forgot';
@@ -38,6 +42,8 @@ type AuthScreenMode = 'signin' | 'signup' | 'verify' | 'forgot';
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onAuthenticated,
   onSwitchView,
+  initialAuthError = null,
+  onClearAuthError,
 }) => {
   const [mode, setMode] = useState<AuthScreenMode>('signin');
   const [fullName, setFullName] = useState<string>('');
@@ -51,6 +57,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [verificationCode, setVerificationCode] = useState<string>('');
   const [pendingVerifyEmail, setPendingVerifyEmail] = useState<string>('');
   const [resendCooldown, setResendCooldown] = useState<number>(0);
+
+  const [resetEmailSent, setResetEmailSent] = useState<boolean>(false);
+  const [resetCode, setResetCode] = useState<string>('');
+  const [newResetPassword, setNewResetPassword] = useState<string>('');
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState<boolean>(false);
@@ -121,6 +131,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
         .finally(() => {
           if (active) setIsLoading(false);
         });
+    } else if (urlMode === 'resetPassword' && oobCode) {
+      setMode('forgot');
+      setResetEmailSent(true);
+      setResetCode(oobCode);
+      setSuccessMsg('Reset link detected. Enter your new password below to finish resetting.');
+      const cleanUrl = `${window.location.pathname}${window.location.hash || ''}`;
+      window.history.replaceState({}, document.title, cleanUrl);
     } else if (auth.currentUser && !auth.currentUser.emailVerified && auth.currentUser.email) {
       setPendingVerifyEmail(auth.currentUser.email);
       setEmail(auth.currentUser.email);
@@ -131,6 +148,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       active = false;
     };
   }, []);
+
+  useEffect(() => {
+    const clean = (initialAuthError || '').trim();
+    if (clean) {
+      setErrorMsg(clean);
+    }
+  }, [initialAuthError]);
 
   // Auto-detect when user clicks the Gmail verification link in another tab/app
   useEffect(() => {
@@ -177,6 +201,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       window.clearInterval(pollInterval);
     };
   }, [mode]);
+
+  useEffect(() => {
+    syncAuthPersistence(rememberMe);
+  }, [rememberMe]);
 
   useEffect(() => {
     if (resendCooldown <= 0) return;
@@ -308,9 +336,37 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setSuccessMsg(null);
     try {
       await sendPasswordResetForEmail(email);
-      setSuccessMsg(`Password reset email sent to ${email.trim()}. Check your Gmail inbox.`);
+      setResetEmailSent(true);
+      setSuccessMsg(`Password reset email sent to ${email.trim()}. Check your Gmail inbox (and Spam folder).`);
     } catch (err: unknown) {
       setErrorMsg(formatFirestoreErrorMessage(err, 'Could not send reset email.'));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleConfirmResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetCode.trim()) {
+      setErrorMsg('Paste the reset code or link from your Gmail.');
+      return;
+    }
+    if (newResetPassword.length < 6) {
+      setErrorMsg('New password must be at least 6 characters long.');
+      return;
+    }
+    setIsLoading(true);
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    try {
+      await confirmPasswordResetWithCode(resetCode, newResetPassword);
+      setResetCode('');
+      setNewResetPassword('');
+      setResetEmailSent(false);
+      setMode('signin');
+      setSuccessMsg('Password updated! You can now sign in with your new password.');
+    } catch (err: unknown) {
+      setErrorMsg(formatFirestoreErrorMessage(err, 'Could not reset password.'));
     } finally {
       setIsLoading(false);
     }
@@ -324,6 +380,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setIsGoogleLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
+    onClearAuthError?.();
 
     try {
       setPendingAuthAccountMode('company');
@@ -401,23 +458,62 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           />
 
           <div className="relative z-10 w-full max-w-sm mx-auto space-y-3.5">
-            {/* Form Heading */}
-            <div>
-              <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                {mode === 'signin'
-                  ? 'Sign in'
-                  : mode === 'signup'
-                  ? 'Create Account'
-                  : mode === 'verify'
-                  ? 'Gmail Verification'
-                  : 'Reset Password'}
-              </h1>
-              <p className="text-xs text-slate-500 mt-1">
-                {mode === 'signin' && 'Sign in with Google or your verified Gmail account.'}
-                {mode === 'signup' && 'Verify your Gmail once to unlock both Users and Company.'}
-                {mode === 'verify' && `Tap the Gmail verification link sent to ${pendingVerifyEmail || email} (or paste the link below).`}
-                {mode === 'forgot' && 'Enter your Gmail address to receive a password reset link.'}
-              </p>
+            {/* Form Heading & Quick Switch Tabs */}
+            <div className="space-y-2.5">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                    {mode === 'signin'
+                      ? 'Sign in'
+                      : mode === 'signup'
+                      ? 'Create Account'
+                      : mode === 'verify'
+                      ? 'Gmail Verification'
+                      : 'Reset Password'}
+                  </h1>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    {mode === 'signin' && 'Choose your Google account or sign in with Gmail & password.'}
+                    {mode === 'signup' && 'Verify your Gmail once to unlock both Users and Company.'}
+                    {mode === 'verify' && `Verify using the Gmail link or code sent to ${pendingVerifyEmail || email}.`}
+                    {mode === 'forgot' && 'Enter your Gmail to receive a password reset link or apply a reset code.'}
+                  </p>
+                </div>
+              </div>
+
+              {(mode === 'signin' || mode === 'signup') && (
+                <div className="grid grid-cols-2 p-1 rounded-xl bg-slate-100 border border-slate-200/80">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                      setMode('signin');
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      mode === 'signin'
+                        ? 'bg-white text-[#0b3b75] shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Sign In
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                      setMode('signup');
+                    }}
+                    className={`py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      mode === 'signup'
+                        ? 'bg-white text-[#0b3b75] shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    Create Account
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Instant 1-Click Verified Google Login */}
@@ -442,7 +538,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                         <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
                       </svg>
-                      <span>Continue with Google (Instant Verified)</span>
+                      <span>Continue with Google (Choose Gmail)</span>
                     </>
                   )}
                 </button>
@@ -456,15 +552,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             )}
 
             {/* Alerts */}
-            {errorMsg && (
+            {errorMsg && errorMsg.trim() && (
               <AuthErrorNotice
                 message={errorMsg}
                 variant="light"
-                onDomainAuthorized={() => setErrorMsg(null)}
+                onDomainAuthorized={() => {
+                  setErrorMsg(null);
+                  onClearAuthError?.();
+                }}
+                onUseGoogleSignIn={handleGoogleAuth}
               />
             )}
 
-            {successMsg && (
+            {successMsg && successMsg.trim() && (
               <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-medium flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
                 <span>{successMsg}</span>
@@ -710,52 +810,120 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     <span>Back to Sign in</span>
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  disabled={isLoading || isGoogleLoading}
+                  onClick={handleGoogleAuth}
+                  className="w-full py-2 px-3 rounded-xl bg-slate-100 hover:bg-slate-200/80 text-slate-800 font-bold text-xs flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                >
+                  <span>Or verify instantly with Google Account</span>
+                </button>
               </form>
             )}
 
             {/* MODE 4: FORGOT PASSWORD */}
             {mode === 'forgot' && (
-              <form onSubmit={handleForgotPassword} className="space-y-3">
-                <div className="relative">
-                  <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  <input
-                    type="email"
-                    required
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your Gmail address"
-                    className="w-full rounded-xl bg-slate-100 border border-slate-200/80 pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0058c6]/30 focus:border-[#0058c6] focus:bg-white transition-all"
-                  />
+              <div className="space-y-3">
+                <form onSubmit={handleForgotPassword} className="space-y-2.5">
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="Enter your Gmail address"
+                      className="w-full rounded-xl bg-slate-100 border border-slate-200/80 pl-10 pr-3.5 py-2.5 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0058c6]/30 focus:border-[#0058c6] focus:bg-white transition-all"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={isLoading}
+                    className="w-full min-h-[42px] py-2 px-5 rounded-xl bg-[#0b3b75] hover:bg-[#082d5c] text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 shadow-sm"
+                  >
+                    {isLoading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Sending reset email...</span>
+                      </>
+                    ) : (
+                      <span>{resetEmailSent ? 'Resend Reset Link' : 'Send Reset Link'}</span>
+                    )}
+                  </button>
+                </form>
+
+                {resetEmailSent && (
+                  <form onSubmit={handleConfirmResetPassword} className="space-y-2.5 pt-2 border-t border-slate-200">
+                    <a
+                      href="https://mail.google.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="w-full py-2 px-4 rounded-xl bg-sky-50 hover:bg-sky-100 border border-sky-200 text-[#0b3b75] font-bold text-xs flex items-center justify-center gap-2 transition-colors"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>Open Gmail Inbox</span>
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+
+                    <div className="relative">
+                      <KeyRound className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="text"
+                        value={resetCode}
+                        onChange={(e) => setResetCode(e.target.value)}
+                        placeholder="Paste reset code or link from Gmail"
+                        className="w-full rounded-xl bg-slate-100 border border-slate-200/80 pl-10 pr-3.5 py-2 text-xs font-mono text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0058c6]/30 focus:border-[#0058c6] focus:bg-white transition-all"
+                      />
+                    </div>
+
+                    <div className="relative">
+                      <Lock className="w-4 h-4 text-slate-500 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="password"
+                        minLength={6}
+                        value={newResetPassword}
+                        onChange={(e) => setNewResetPassword(e.target.value)}
+                        placeholder="Enter new password (min 6 chars)"
+                        className="w-full rounded-xl bg-slate-100 border border-slate-200/80 pl-10 pr-3.5 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#0058c6]/30 focus:border-[#0058c6] focus:bg-white transition-all"
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isLoading}
+                      className="w-full py-2 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                    >
+                      <span>Confirm New Password</span>
+                    </button>
+                  </form>
+                )}
+
+                <div className="flex items-center justify-between gap-2 pt-1 text-xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setErrorMsg(null);
+                      setSuccessMsg(null);
+                      setResetEmailSent(false);
+                      setMode('signin');
+                    }}
+                    className="py-1 font-semibold text-slate-600 hover:text-slate-900 inline-flex items-center gap-1 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    <span>Back to Sign in</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleGoogleAuth}
+                    className="py-1 font-bold text-[#0b3b75] hover:underline cursor-pointer"
+                  >
+                    Use Google Sign-In
+                  </button>
                 </div>
-
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full min-h-[44px] py-2.5 px-5 rounded-xl bg-[#0b3b75] hover:bg-[#082d5c] text-white font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-60 shadow-sm"
-                >
-                  {isLoading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Sending reset email...</span>
-                    </>
-                  ) : (
-                    <span>Send Reset Link</span>
-                  )}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setErrorMsg(null);
-                    setSuccessMsg(null);
-                    setMode('signin');
-                  }}
-                  className="w-full py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center justify-center gap-1 cursor-pointer"
-                >
-                  <ArrowLeft className="w-3.5 h-3.5" />
-                  <span>Back to Sign in</span>
-                </button>
-              </form>
+              </div>
             )}
 
             {/* MODE SWITCH FOOTER (Sign in / Sign up toggle) */}

@@ -3,8 +3,6 @@ import {
   Smartphone,
   ShieldCheck,
   Wallet,
-  Maximize2,
-  Minimize2,
   Type,
   LogIn,
   BarChart3,
@@ -23,8 +21,6 @@ export interface HeaderProps {
   onOpenRegister?: () => void;
   onLogout?: () => void;
   onOpenWallet: () => void;
-  deviceFrameMode: boolean;
-  onToggleDeviceFrame: () => void;
   textSize: string;
   onCycleTextSize: () => void;
   onOpenHappyFaces?: () => void;
@@ -39,8 +35,6 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   user,
   onOpenAuth,
-  deviceFrameMode,
-  onToggleDeviceFrame,
   textSize,
   onCycleTextSize,
   isAdminUnlocked = false,
@@ -170,18 +164,6 @@ export const Header: React.FC<HeaderProps> = ({
             <Type className="w-3.5 h-3.5 text-slate-500 shrink-0" />
             <span className="hidden lg:inline">{textSize}</span>
           </button>
-
-          {isCustomer && (
-            <button
-              type="button"
-              onClick={onToggleDeviceFrame}
-              className="hidden md:flex p-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 font-semibold text-[11px] items-center gap-1 cursor-pointer transition-colors whitespace-nowrap"
-              title={deviceFrameMode ? 'Switch to Full Width' : 'Switch to Phone Simulator'}
-            >
-              {deviceFrameMode ? <Maximize2 className="w-3.5 h-3.5 shrink-0" /> : <Minimize2 className="w-3.5 h-3.5 shrink-0" />}
-              <span className="hidden lg:inline">{deviceFrameMode ? 'Phone' : 'Full'}</span>
-            </button>
-          )}
 
           {user?.isLoggedIn && (
             <button

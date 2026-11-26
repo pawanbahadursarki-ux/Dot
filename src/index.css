@@ -23,7 +23,7 @@
 html, body {
   margin: 0;
   height: 100%;
-  background: #DCD6CA;
+  background: var(--paper);
   color: var(--ink);
   font-family: var(--body);
   -webkit-font-smoothing: antialiased;
@@ -51,7 +51,7 @@ input {
   min-height: 100dvh;
   display: flex;
   flex-direction: column;
-  background: #DCD6CA;
+  background: var(--paper);
   overflow-x: clip;
 }
 

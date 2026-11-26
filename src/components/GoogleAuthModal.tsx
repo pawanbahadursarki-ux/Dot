@@ -222,7 +222,13 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
                 Verified Google identity protects your private wallet, payouts, and company subscription.
               </p>
             </div>
-            {authError && <AuthErrorNotice message={authError} variant="light" />}
+            {authError && (
+              <AuthErrorNotice
+                message={authError}
+                variant="light"
+                onUseGoogleSignIn={handleGoogleSignIn}
+              />
+            )}
             <button
               type="button"
               disabled={isLoading}

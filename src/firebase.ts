@@ -1,11 +1,14 @@
-import { initializeApp } from 'firebase/app';
+import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
-export const app = initializeApp(firebaseConfig);
+export const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+auth.useDeviceLanguage();
 export const googleProvider = new GoogleAuthProvider();
+googleProvider.addScope('email');
+googleProvider.addScope('profile');
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
@@ -63,18 +66,36 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 }
 
 export function formatFirestoreErrorMessage(err: unknown, fallback = 'Request failed. Please try again.'): string {
-  const raw = err instanceof Error ? err.message : typeof err === 'string' ? err : '';
-  if (!raw) return fallback;
+  const code =
+    err && typeof err === 'object' && typeof (err as { code?: unknown }).code === 'string'
+      ? (err as { code: string }).code.trim()
+      : '';
+  const rawValue =
+    err instanceof Error
+      ? err.message
+      : typeof err === 'string'
+      ? err
+      : err && typeof err === 'object' && typeof (err as { message?: unknown }).message === 'string'
+      ? (err as { message: string }).message
+      : '';
+  const raw = rawValue.trim();
+
+  if (!raw || /^Firebase:\s*Error\s*\(\s*\)\.?$/i.test(raw) || raw === '{}') {
+    return code ? `${fallback} (${code})` : fallback;
+  }
+
   if (raw.startsWith('{')) {
     try {
       const parsed = JSON.parse(raw) as Partial<FirestoreErrorInfo>;
       if (parsed && typeof parsed.error === 'string' && parsed.error.trim()) {
-        return parsed.error;
+        return parsed.error.trim();
       }
     } catch {
-      // Not valid JSON; return raw string
+      // Not valid JSON; continue
     }
+    return code ? `${fallback} (${code})` : fallback;
   }
+
   return raw;
 }
 
